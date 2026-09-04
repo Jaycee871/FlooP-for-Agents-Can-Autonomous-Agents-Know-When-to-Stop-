@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -137,7 +137,8 @@ def run_scenario(client: NvidiaClient, scenario: Scenario) -> tuple[list[dict[st
                 {"role": "user", "content": _prompt(scenario, queried, outcomes, round_no)},
             ],
             temperature=0.1,
-            max_tokens=420,
+            max_tokens=4096,
+            reasoning_effort="low",
         )
         action = parse_action(response.content)
 
@@ -168,6 +169,7 @@ def run_scenario(client: NvidiaClient, scenario: Scenario) -> tuple[list[dict[st
             "decision_agreement": decision_agreement,
             "query_matches_oracle": query_matches_oracle,
             "expected_gain_abs_error": abs(action["expected_net_gain"] - oracle.advantage),
+            "reasoning_chars": len(response.reasoning) if response.reasoning else 0,
             "prompt_tokens": response.prompt_tokens,
             "completion_tokens": response.completion_tokens,
             "total_tokens": response.total_tokens,
@@ -183,7 +185,6 @@ def run_scenario(client: NvidiaClient, scenario: Scenario) -> tuple[list[dict[st
             invalid_actions += 1
             record["environment_outcome"] = "INVALID_QUERY"
             records.append(record)
-            # Invalid queries consume a round but are not charged as an environment query.
             continue
 
         q = int(action["query"])
