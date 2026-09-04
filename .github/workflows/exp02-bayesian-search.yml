@@ -1,0 +1,41 @@
+name: Exp 02 Bayesian FlooP search pilot
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/exp02-bayesian-search.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  run-exp02:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+      NVDIA_API_KEY: ${{ secrets.NVDIA_API_KEY }}
+      NVIDIA_MODEL: openai/gpt-oss-20b
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install benchmark
+        run: python -m pip install -e .
+
+      - name: Run Bayesian witness-search pilot
+        run: python experiments/exp02_bayesian_search.py
+
+      - name: Upload traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp02-bayesian-search
+          path: results/exp02_bayesian_search/
+          if-no-files-found: warn
+          retention-days: 14
