@@ -1,0 +1,44 @@
+name: Exp 03 stopping-boundary calibration sweep
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/exp03-boundary-sweep.yml"
+      - "experiments/exp03_boundary_sweep.py"
+      - "src/floop_agents/search_arena.py"
+      - "src/floop_agents/providers/nvidia.py"
+
+permissions:
+  contents: read
+
+jobs:
+  run-exp03:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+      NVDIA_API_KEY: ${{ secrets.NVDIA_API_KEY }}
+      NVIDIA_MODEL: openai/gpt-oss-20b
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install benchmark
+        run: python -m pip install -e .
+
+      - name: Run stopping-boundary calibration sweep
+        run: python experiments/exp03_boundary_sweep.py
+
+      - name: Upload probes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp03-boundary-sweep
+          path: results/exp03_boundary_sweep/
+          if-no-files-found: warn
+          retention-days: 14
