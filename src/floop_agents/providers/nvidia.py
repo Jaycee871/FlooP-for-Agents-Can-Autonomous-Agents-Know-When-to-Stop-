@@ -91,15 +91,24 @@ class NvidiaClient:
         if not candidates:
             raise RuntimeError("No plausible chat-capable NVIDIA model was found")
 
-        # Prefer smaller instruction-tuned models for the smoke experiment to keep
-        # latency and cost low. If none match, fall back to the first chat candidate.
+        # NVIDIA's public NIM API documentation uses this model as the canonical
+        # chat-completions example. Prefer it over arbitrary catalogue ordering,
+        # because /models may contain entries that are visible but not invokable
+        # for the current account.
+        canonical = "meta/llama-3.1-8b-instruct"
+        for model in candidates:
+            if model.lower() == canonical:
+                self.model = model
+                return model
+
+        # Otherwise prefer small instruction-tuned public models.
         priorities = (
-            "8b-instruct",
-            "7b-instruct",
-            "mini-instruct",
-            "small-instruct",
-            "llama-3.1-8b",
+            "meta/llama-3.2-3b-instruct",
+            "meta/llama-3.2-1b-instruct",
+            "nvidia/llama-3.1-nemotron-nano-8b",
             "qwen2.5-7b",
+            "7b-instruct",
+            "8b-instruct",
         )
         for marker in priorities:
             for model in candidates:
