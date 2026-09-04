@@ -40,7 +40,6 @@ class NvidiaClient:
 
     @classmethod
     def from_env(cls) -> "NvidiaClient":
-        # Support the historical misspelling used during the first connectivity test.
         api_key = os.getenv("NVIDIA_API_KEY") or os.getenv("NVDIA_API_KEY") or ""
         model = os.getenv("NVIDIA_MODEL") or None
         return cls(api_key=api_key, model=model)
@@ -78,7 +77,10 @@ class NvidiaClient:
     @staticmethod
     def _chat_candidates(model_ids: Iterable[str]) -> list[str]:
         excluded = ("embed", "rerank", "retrieval", "vision-embed", "nvclip")
-        preferred_markers = ("instruct", "chat", "reason", "llama", "qwen", "mistral", "nemotron")
+        preferred_markers = (
+            "instruct", "chat", "reason", "llama", "qwen", "mistral", "nemotron",
+            "gpt-oss", "glm", "gemma", "deepseek",
+        )
         ids = [m for m in model_ids if not any(term in m.lower() for term in excluded)]
         preferred = [m for m in ids if any(term in m.lower() for term in preferred_markers)]
         return preferred or ids
@@ -91,30 +93,22 @@ class NvidiaClient:
         if not candidates:
             raise RuntimeError("No plausible chat-capable NVIDIA model was found")
 
-        # NVIDIA's public NIM API documentation uses this model as the canonical
-        # chat-completions example. Prefer it over arbitrary catalogue ordering,
-        # because /models may contain entries that are visible but not invokable
-        # for the current account.
-        canonical = "meta/llama-3.1-8b-instruct"
-        for model in candidates:
-            if model.lower() == canonical:
-                self.model = model
-                return model
-
-        # Otherwise prefer small instruction-tuned public models.
+        # Prefer endpoints that NVIDIA currently advertises as live prototype
+        # chat endpoints. Do not trust catalogue ordering: /models can retain
+        # entries whose inference endpoint has already reached end of life.
         priorities = (
-            "meta/llama-3.2-3b-instruct",
-            "meta/llama-3.2-1b-instruct",
-            "nvidia/llama-3.1-nemotron-nano-8b",
-            "qwen2.5-7b",
-            "7b-instruct",
-            "8b-instruct",
+            "openai/gpt-oss-20b",
+            "google/gemma-3-27b-it",
+            "nvidia/llama-3.3-nemotron-super-49b-v1",
+            "z-ai/glm-5.1",
+            "deepseek-ai/deepseek-v4-flash",
         )
-        for marker in priorities:
+        for preferred in priorities:
             for model in candidates:
-                if marker in model.lower():
+                if model.lower() == preferred:
                     self.model = model
                     return model
+
         self.model = candidates[0]
         return self.model
 
@@ -137,7 +131,8 @@ class NvidiaClient:
         choices = data.get("choices") or []
         if not choices:
             raise RuntimeError(f"NVIDIA API returned no choices: {str(data)[:800]}")
-        content = choices[0].get("message", {}).get("content")
+        message = choices[0].get("message", {})
+        content = message.get("content")
         if not isinstance(content, str):
             raise RuntimeError(f"NVIDIA API returned malformed message content: {str(data)[:800]}")
         usage = data.get("usage") or {}
