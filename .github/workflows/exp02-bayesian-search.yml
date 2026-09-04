@@ -5,6 +5,9 @@ on:
   push:
     paths:
       - ".github/workflows/exp02-bayesian-search.yml"
+      - "experiments/exp02_bayesian_search.py"
+      - "src/floop_agents/search_arena.py"
+      - "src/floop_agents/providers/nvidia.py"
 
 permissions:
   contents: read
