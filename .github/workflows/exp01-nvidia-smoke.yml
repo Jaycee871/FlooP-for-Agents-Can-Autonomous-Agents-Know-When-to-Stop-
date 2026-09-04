@@ -1,0 +1,40 @@
+name: Exp 01 NVIDIA real-agent smoke
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/exp01-nvidia-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  run-exp01:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+      NVDIA_API_KEY: ${{ secrets.NVDIA_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install benchmark
+        run: python -m pip install -e .
+
+      - name: Run three-task real-agent smoke
+        run: python experiments/exp01_nvidia_smoke.py --max-steps 4
+
+      - name: Upload traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp01-nvidia-smoke
+          path: results/exp01_nvidia_smoke/
+          if-no-files-found: warn
+          retention-days: 14
