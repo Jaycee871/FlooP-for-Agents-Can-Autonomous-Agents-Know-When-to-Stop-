@@ -16,7 +16,7 @@ jobs:
     env:
       NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
       NVDIA_API_KEY: ${{ secrets.NVDIA_API_KEY }}
-      NVIDIA_MODEL: meta/llama-3.1-8b-instruct
+      NVIDIA_MODEL: openai/gpt-oss-20b
 
     steps:
       - uses: actions/checkout@v4
