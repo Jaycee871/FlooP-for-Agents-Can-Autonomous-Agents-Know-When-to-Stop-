@@ -129,6 +129,36 @@ def oracle_state(spec: SearchSpec, queried: Iterable[int]) -> OracleState:
     )
 
 
+def query_action_value(spec: SearchSpec, queried: Iterable[int], query: int) -> float:
+    """Return exact expected value of QUERY(query) with optimal future control.
+
+    This is the state-action value Q*(s, q): the immediate query cost plus target
+    reward if the query succeeds, and—after a miss—the Bayes-optimal value of the
+    next posterior state. It enables local regret decomposition when an agent
+    chooses a non-oracle query.
+    """
+
+    queried_list = list(queried)
+    queried_set = set(queried_list)
+    if not 1 <= query <= spec.n_candidates:
+        raise ValueError("query is outside the candidate domain")
+    if query in queried_set:
+        raise ValueError("query has already been observed to miss")
+
+    _, target_post = _remaining_masses(spec, queried_list)
+    hit_prob = target_post.get(query)
+    if hit_prob is None:
+        raise ValueError("query is unavailable in the current state")
+
+    next_state = oracle_state(spec, [*queried_list, query])
+    future_value_after_miss = max(0.0, next_state.continuation_value)
+    return (
+        -spec.query_cost
+        + hit_prob * spec.reward
+        + (1.0 - hit_prob) * future_value_after_miss
+    )
+
+
 def oracle_policy_path(spec: SearchSpec, target: int | None) -> dict[str, object]:
     """Simulate the Bayes-optimal policy on one realized hidden world."""
 
