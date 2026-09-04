@@ -1,4 +1,9 @@
-from floop_agents.search_arena import SearchSpec, oracle_policy_path, oracle_state
+from floop_agents.search_arena import (
+    SearchSpec,
+    oracle_policy_path,
+    oracle_state,
+    query_action_value,
+)
 
 
 def test_oracle_has_interior_stopping_point():
@@ -12,6 +17,28 @@ def test_oracle_queries_highest_prior_first():
     state = oracle_state(spec, [])
     assert state.decision == "QUERY"
     assert state.best_query == 1
+
+
+def test_best_query_action_value_matches_oracle_continuation_value():
+    spec = SearchSpec(n_candidates=50, existence_prob=0.8, alpha=1.5, query_cost=0.05)
+    queried = [1, 2, 3]
+    state = oracle_state(spec, queried)
+    assert state.best_query == 4
+    assert abs(query_action_value(spec, queried, 4) - state.continuation_value) < 1e-12
+    assert query_action_value(spec, queried, 10) <= state.continuation_value
+
+
+def test_all_queries_are_nonpositive_after_oracle_stop_boundary():
+    spec = SearchSpec(n_candidates=50, existence_prob=0.8, alpha=1.5, query_cost=0.05)
+    queried = [1, 2, 3, 4, 5, 6]
+    state = oracle_state(spec, queried)
+    assert state.decision == "STOP"
+    remaining_values = [
+        query_action_value(spec, queried, q)
+        for q in range(1, spec.n_candidates + 1)
+        if q not in queried
+    ]
+    assert max(remaining_values) <= 0.0
 
 
 def test_oracle_path_finds_early_target():
