@@ -12,6 +12,7 @@ from typing import Any, Iterable
 class NvidiaResponse:
     content: str
     model: str
+    reasoning: str | None = None
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
     total_tokens: int | None = None
@@ -93,9 +94,6 @@ class NvidiaClient:
         if not candidates:
             raise RuntimeError("No plausible chat-capable NVIDIA model was found")
 
-        # Prefer endpoints that NVIDIA currently advertises as live prototype
-        # chat endpoints. Do not trust catalogue ordering: /models can retain
-        # entries whose inference endpoint has already reached end of life.
         priorities = (
             "openai/gpt-oss-20b",
             "google/gemma-3-27b-it",
@@ -117,28 +115,39 @@ class NvidiaClient:
         messages: list[dict[str, str]],
         *,
         temperature: float = 0.2,
-        max_tokens: int = 320,
+        max_tokens: int = 4096,
+        reasoning_effort: str | None = None,
     ) -> NvidiaResponse:
         model = self.resolve_model()
-        payload = {
+        payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": False,
         }
+        if reasoning_effort is not None:
+            payload["reasoning_effort"] = reasoning_effort
+
         data = self._request_json("POST", "/chat/completions", payload)
         choices = data.get("choices") or []
         if not choices:
             raise RuntimeError(f"NVIDIA API returned no choices: {str(data)[:800]}")
         message = choices[0].get("message", {})
         content = message.get("content")
-        if not isinstance(content, str):
-            raise RuntimeError(f"NVIDIA API returned malformed message content: {str(data)[:800]}")
+        reasoning = message.get("reasoning_content") or message.get("reasoning")
+        if not isinstance(content, str) or not content.strip():
+            finish_reason = choices[0].get("finish_reason")
+            raise RuntimeError(
+                "NVIDIA API returned no final content "
+                f"(finish_reason={finish_reason!r}, reasoning_chars={len(reasoning) if isinstance(reasoning, str) else 0}). "
+                "Increase max_tokens or lower reasoning_effort."
+            )
         usage = data.get("usage") or {}
         return NvidiaResponse(
             content=content,
             model=str(data.get("model") or model),
+            reasoning=reasoning if isinstance(reasoning, str) else None,
             prompt_tokens=usage.get("prompt_tokens"),
             completion_tokens=usage.get("completion_tokens"),
             total_tokens=usage.get("total_tokens"),
