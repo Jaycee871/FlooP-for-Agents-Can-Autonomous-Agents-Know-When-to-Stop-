@@ -2,9 +2,6 @@ name: Exp 05c explicit STOP-baseline coupling control
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/exp05c-explicit-stop-baseline.yml"
 
 permissions:
   contents: read
