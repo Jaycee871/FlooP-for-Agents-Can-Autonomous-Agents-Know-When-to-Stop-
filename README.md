@@ -36,33 +36,73 @@ This lets us distinguish:
 
 - **premature epistemic closure** — stopping while continuation still has positive value;
 - **excess continuation** — continuing after continuation value becomes negative;
+- **boundary incoherence** — returning to `QUERY` after a `STOP` under stronger evidence for stopping;
 - **value miscalibration** — the agent's reported marginal value disagrees with the oracle;
 - **forced termination** — the harness, not the agent, ends execution.
 
-## Metrics
+## Exact stopping rule
 
-For generic task utility `U(s)` after `s` steps and per-step cost `c`, a simple oracle stop is:
+For candidate query `q` in state `s`:
 
 ```text
-s* = argmax_s [ U(s) - c s ]
+Q*(s,q) = -c + p_hit(s,q) R + p_miss(s,q) V*(s_q^-)
 ```
 
-For the Bayesian search arena we use the exact state-dependent continuation value instead of a fixed trajectory optimum.
+The best continuation value is:
+
+```text
+C*(s) = max_q Q*(s,q)
+V*(s) = max(0, C*(s))
+```
+
+so the normative action is:
+
+```text
+QUERY / CONTINUE  iff C*(s) > 0
+STOP              otherwise
+```
+
+The model separately reports its own estimate of the value of continuing, which permits direct calibration analysis rather than inferring rationality from episode length alone.
+
+## Failure taxonomy
+
+The current experiments distinguish three levels of stopping failure:
+
+```text
+Level 1 — Boundary bias
+The agent stops too early or too late relative to the oracle boundary.
+
+Level 2 — Boundary incoherence
+The agent emits STOP and later returns to QUERY under strictly stronger evidence for stopping.
+
+Level 3 — Value-mechanism failure
+The error is localized to state/belief calibration, future-option-value estimation,
+or the mapping from a value estimate to a discrete action.
+```
+
+This prevents all termination failures from being collapsed into a generic "overthinking" label.
+
+## Metrics
 
 Primary metrics include:
 
-- **Excess Continuation Ratio (ECR)**
 - **Premature Stop Rate**
+- **Excess Continuation Ratio**
 - **Failure-to-Halt Rate**
-- **Termination Regret**
+- **Local Termination Regret**
 - **Signed Continuation-Calibration Error**: agent-reported continuation value minus oracle continuation advantage
-- **Stopping-Boundary Displacement**: agent boundary minus oracle boundary
+- **Continuation-value sign accuracy**
+- **Stopping-Boundary Displacement**
 - **Decision / Value Self-Consistency**
+- **Query-selection regret**
+- **Boundary monotonicity / post-STOP reversal count**
+- **Future-option-value omission error** in the Bellman diagnostic
+- **Decomposition closure error** in the Bellman diagnostic
 - **Utility at Stop**, tracked separately from normative regret
 
 The separation between realized utility and normative regret matters because a bad stopping decision can look good ex post in a lucky hidden world.
 
-## Current empirical result
+## Current empirical anchor
 
 **Exp 02 — Bayesian witness-search pilot** used `openai/gpt-oss-20b` through NVIDIA hosted inference.
 
@@ -76,7 +116,45 @@ Under the standard world (`P(target exists)=0.8`, query cost `0.05`, reward `1.0
 
 The pilot therefore exposes a useful separation: **the agent knew where to search, but misjudged whether further search was still worth doing.**
 
-See `paper/exp02_bayesian_search.md` and `results/exp02_bayesian_search/`.
+Exp 03 extends this from one trajectory to independently probed stopping-boundary states. Exp 04 and Exp 05 then isolate *why* the continuation judgment fails rather than merely measuring that it fails.
+
+## Mechanism experiments
+
+### Exp 04 — calibrated-state ablation
+
+Compare the raw state prompt against a prompt that additionally provides exact posterior state statistics:
+
+```text
+posterior target-existence probability
+highest one-query hit probability
+highest-mass remaining candidate
+```
+
+No oracle continuation value, stopping boundary, STOP/QUERY decision, or sign-equivalent quantity is exposed. The highest-mass candidate is computed independently of the oracle stopping decision to prevent leakage at STOP states.
+
+Purpose: test whether stopping errors are primarily **belief/state-calibration failures**.
+
+### Exp 05 — Bellman decomposition diagnostic
+
+If exact state statistics are insufficient, require the model to decompose the best continuation it can identify:
+
+```text
+full continuation value
+= - query cost
+  + immediate hit value
+  + miss probability * estimated optimal value after a miss
+```
+
+The key diagnostic is:
+
+```text
+future-option-value omission error
+= model estimated value after miss - exact V*(state after miss)
+```
+
+A systematic negative error would support the hypothesis that the model undervalues the option to keep acting after the next unsuccessful step.
+
+Exp 05 is gated behind inspection of the corrected Exp 04 result rather than being launched automatically.
 
 ## Quick start
 
@@ -92,24 +170,31 @@ Real-agent experiments require an NVIDIA API key in the environment.
 
 ```text
 src/floop_agents/
-  tasks.py           synthetic task families
-  policies.py        bounded / unbounded / meta / verifier stopping
-  simulate.py        safe episode runner
-  metrics.py         termination metrics
-  search_arena.py    Bayesian search world + exact stopping oracle
-  providers/         real-model adapters
+  tasks.py              synthetic task families
+  policies.py           bounded / unbounded / meta / verifier stopping
+  simulate.py           safe episode runner
+  metrics.py            termination metrics
+  stopping_metrics.py   exact local regret + calibration decomposition
+  search_arena.py       Bayesian search world + exact stopping oracle
+  providers/            real-model adapters with bounded retry handling
 
 experiments/
   exp00_synthetic.py
   exp01_nvidia_smoke.py
   exp02_bayesian_search.py
   exp03_boundary_sweep.py
+  exp04_calibrated_state_ablation.py
+  exp05_bellman_decomposition.py
 
 paper/
   outline.md
+  formalization.md
   exp00_pilot.md
   exp01_nvidia_smoke.md
   exp02_bayesian_search.md
+  exp03_boundary_sweep.md
+  exp04_calibrated_state_ablation.md
+  exp05_bellman_decomposition_protocol.md
 
 results/
 ```
@@ -124,11 +209,29 @@ results/
 
 **Exp 03 — stopping-boundary calibration sweep.** Vary query cost and probe counterfactual post-miss states to estimate the model's stopping boundary, signed continuation-value calibration, and boundary coherence.
 
-**Exp 04 — metareasoning treatments.** Test whether explicit lookahead, self-critique, verifier assistance, or tool-assisted value calculation repairs stopping without simply imposing another external bound.
+**Exp 04 — calibrated-state ablation.** Supply exact posterior state statistics without revealing the oracle decision to isolate belief/state calibration from continuation-value reasoning.
 
-**Exp 05 — cross-model / open-weight replication.** Repeat the boundary experiment across model families and inference stacks.
+**Exp 05 — Bellman decomposition diagnostic.** If calibrated state information is insufficient, isolate immediate-value, miss-probability, and future-option-value errors.
 
-**Exp 06 — richer agent environments.** Extend from synthetic Bayesian search to tool-using and open-ended tasks with irreversible or externally costly actions.
+**Exp 06 — repeated-state and cross-model replication.** Repeat selected boundary states and mechanism treatments across model families.
+
+**Exp 07 — richer agent environments.** Extend from Bayesian search to retrieval, coding, tool acquisition, and externally costly actions.
+
+## Mechanism interpretation
+
+```text
+Exp 04 strongly improves stopping
+    -> state/belief calibration is the main bottleneck.
+
+Exp 04 weak, Exp 05 strongly improves stopping
+    -> dynamic decomposition / future option value is the main bottleneck.
+
+Neither improves
+    -> investigate deeper policy-level meta-reasoning and action/value coupling.
+
+Value estimates improve but actions do not
+    -> value representation and stopping policy are separable failure modes.
+```
 
 ## Novelty guard
 
@@ -136,7 +239,7 @@ Recent work already studies agentic abstention, cost-aware exploration, early ex
 
 The narrower target is:
 
-> **Evaluate an agent-emitted STOP as a calibrated metareasoning decision, separately from forced harness termination, against an exact normative continuation-value oracle, while measuring both premature stopping and excessive continuation and eliciting the agent's own marginal-value estimate.**
+> **Evaluate an agent-emitted STOP as a calibrated metareasoning decision, separately from forced harness termination, against an exact normative continuation-value oracle, while measuring both premature stopping and excessive continuation and decomposing why the agent's own marginal-value judgment fails.**
 
 ## Working thesis
 
