@@ -2,10 +2,6 @@ name: NVIDIA candidate-model smoke probe
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/nvidia-candidate-smoke.yml"
-      - "experiments/nvidia_candidate_smoke.py"
 
 permissions:
   contents: read
