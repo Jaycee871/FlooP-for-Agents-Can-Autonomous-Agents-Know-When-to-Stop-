@@ -2,6 +2,9 @@ name: Exp 05 Bellman decomposition diagnostic
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/exp05-bellman-decomposition.yml"
 
 permissions:
   contents: read
