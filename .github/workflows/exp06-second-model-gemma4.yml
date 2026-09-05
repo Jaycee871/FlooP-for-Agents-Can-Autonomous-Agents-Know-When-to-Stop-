@@ -9,7 +9,7 @@ permissions:
 jobs:
   replicate-gemma4:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 120
     env:
       NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
       NVDIA_API_KEY: ${{ secrets.NVDIA_API_KEY }}
@@ -17,6 +17,7 @@ jobs:
       NVIDIA_TIMEOUT: "180"
       NVIDIA_MAX_RETRIES: "3"
       NVIDIA_RETRY_BACKOFF: "2"
+      EXP06_MAX_TOKENS: "4096"
 
     steps:
       - uses: actions/checkout@v4
@@ -25,8 +26,8 @@ jobs:
           python-version: "3.11"
       - name: Install benchmark
         run: python -m pip install -e .
-      - name: Run repeated transition audit
-        run: python experiments/exp06_repeated_transition_audit.py --repeats 3
+      - name: Run repeated transition audit with scientific validity gate
+        run: python experiments/exp06_repeated_transition_audit.py --repeats 3 --require-complete
       - name: Upload replication probes
         if: always()
         uses: actions/upload-artifact@v4
