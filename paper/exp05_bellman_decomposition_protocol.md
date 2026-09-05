@@ -1,32 +1,99 @@
-# Exp 05 protocol — Bellman decomposition of stopping judgments
+# Exp 05 protocol — Bellman decomposition in option-value wedge states
 
 ## Status
 
-Implementation scaffolded, execution gated. Do not launch until the valid Exp 04 calibrated-state ablation is inspected.
+Ready for execution. The corrected Exp 04 result has been inspected.
 
-## Motivation
+Exp 04 produced a strong calibrated-state rescue, but its standard boundary states have an important limitation: the sign of the best immediate one-step gain agrees with the sign of the full dynamic continuation value. A model can therefore obtain the correct STOP/QUERY action from supplied probabilities without representing future option value.
 
-Exp 03 showed that the model's native stopping curve can be both premature and non-monotone. Exp 04 tests whether exact posterior state statistics rescue that behavior. If posterior calibration alone is insufficient, the next hypothesis is a **dynamic continuation-value failure**: the model may price only the immediate next query and omit the option value of acting again after a miss.
+Exp 05 removes that shortcut.
 
 ## Main question
 
-When state uncertainty is already calibrated, can an explicit Bellman-style decomposition improve the model's estimate of the value of continuing without revealing the oracle STOP/CONTINUE decision?
+When the current Bayesian state is already supplied exactly, can an agent recognize that a sequence of future actions is worth initiating even when the **next action looks unprofitable in isolation**?
+
+Equivalently:
+
+> Can the agent value the option to keep acting after the next miss?
+
+## Option-value wedge
+
+Define the best one-step myopic gain:
+
+```text
+M(s) = max_q [-c + p_hit(s,q) R]
+```
+
+and the exact dynamically controlled continuation value:
+
+```text
+C*(s) = max_q [-c + p_hit(s,q) R + p_miss(s,q) V*(s_q^-)].
+```
+
+An **option-value wedge state** satisfies:
+
+```text
+M(s) <= 0
+but
+C*(s) > 0.
+```
+
+In such a state:
+
+```text
+myopic policy  -> STOP
+Bayes-optimal dynamic policy -> QUERY
+```
+
+The sign difference makes future option value decision-relevant rather than merely an additive refinement.
+
+## Wedge world
+
+Use a deliberately flat target prior:
+
+```text
+n_candidates = 10
+P(target exists) = 0.8
+alpha = 0.05
+reward = 1.0
+state = initial state, no failed queries yet
+```
+
+The flat prior spreads target mass across many candidates. Individual queries can therefore look unattractive while the *sequence* of possible future queries retains substantial value.
+
+The deterministic oracle geometry is:
+
+| Query cost | Best one-step gain | Full continuation value | Oracle action | Role |
+|---:|---:|---:|---|---|
+| 0.080 | +0.006223 | +0.294141 | QUERY | myopic-positive control |
+| 0.090 | -0.003777 | +0.230909 | QUERY | option-value wedge |
+| 0.100 | -0.013777 | +0.167677 | QUERY | option-value wedge |
+| 0.120 | -0.033777 | +0.041212 | QUERY | option-value wedge |
+| 0.125 | -0.038777 | +0.009596 | QUERY | near-boundary option-value wedge |
+| 0.130 | -0.043777 | -0.022020 | STOP | dynamic-stop control |
+| 0.140 | -0.053777 | -0.053777 | STOP | one-step stop control |
+
+At cost `0.130`, the value after a first miss is still positive, but it is not large enough to compensate for initiating the current query. This is useful for checking that a Bellman-scaffolded model does not simply learn the rule "future value exists, therefore query."
 
 ## Arms
 
-Use identical counterfactual states near each oracle boundary.
+Each cost condition is probed under two arms with identical exact state statistics.
 
 ### A. Calibrated-state arm
 
-Provide only the exact state statistics already used in Exp 04:
+Provide:
 
-- posterior probability that a target still exists;
-- highest one-query hit probability among remaining candidates;
-- candidate with that highest hit probability.
+- exact posterior probability that a target exists;
+- exact highest one-query hit probability;
+- the highest-mass remaining candidate.
+
+The prompt reminds the model to optimize the full continuation policy, but does not force an explicit decomposition.
+
+This arm asks whether state calibration alone is sufficient once the one-step and dynamic decisions disagree.
 
 ### B. Bellman-decomposition arm
 
-Provide the same state statistics, then require the agent to report the following components before its final action:
+Provide the same exact state statistics, then require the model to report:
 
 ```text
 immediate_hit_value
@@ -36,9 +103,9 @@ estimated_value_after_miss
 full_expected_net_gain
 ```
 
-The prompt explicitly reminds the model that a miss is not terminal: after a miss, the future policy may either query again or stop.
+The model must explicitly represent that a miss is not terminal and that the future policy may query again or stop.
 
-No oracle continuation value, oracle boundary, or oracle decision is supplied.
+No oracle continuation value, oracle action, dynamic boundary, or sign-equivalent quantity is supplied.
 
 ## Required JSON schema
 
@@ -57,71 +124,102 @@ No oracle continuation value, oracle boundary, or oracle decision is supplied.
 }
 ```
 
-`evaluated_query` is required even when the final decision is STOP. It identifies the concrete continuation candidate whose Bellman decomposition is being priced. If `decision = QUERY`, `query` must equal `evaluated_query`. If `decision = STOP`, `query = null` while `evaluated_query` remains populated. This prevents an otherwise unidentifiable decomposition at STOP states.
+`evaluated_query` is required even when the final decision is STOP. It identifies the concrete continuation candidate whose Bellman decomposition is being priced. If `decision = QUERY`, `query` must equal `evaluated_query`. If `decision = STOP`, `query = null` while `evaluated_query` remains populated.
 
 ## Exact diagnostic decomposition
 
-For an evaluated query q at state s:
+For evaluated query `q`:
 
 ```text
 Q*(s,q) = -c + p_hit(s,q) R + p_miss(s,q) V*(s_q^-)
 ```
 
-where `s_q^-` is the posterior state after query q misses.
+The key mechanistic statistic is the **future-option-value omission error**:
+
+```text
+E_option(s,q)
+= estimated_value_after_miss - V*(s_q^-).
+```
+
+A negative value means the model undervalues the future policy preserved after a miss.
 
 Record separately:
 
 1. immediate-hit-value error;
 2. query-cost error;
 3. miss-probability error;
-4. after-miss option-value error;
+4. future-option-value omission error;
 5. full evaluated-query value error;
 6. reported decomposition closure error;
 7. STOP/CONTINUE agreement;
-8. premature-stop regret;
-9. excess-continuation regret;
-10. query-selection regret;
-11. invalid-action rate.
+8. wedge-only STOP/CONTINUE agreement;
+9. premature-stop regret;
+10. excess-continuation regret;
+11. query-selection regret;
+12. invalid-action rate.
 
-The key mechanistic statistic is the **future-option-value omission error**:
+## Decomposition closure
 
-```text
-E_option(s,q) = estimated_value_after_miss - V*(s_q^-)
-```
-
-A systematically negative `E_option` near states where continuation remains normatively valuable would support the planning-horizon hypothesis.
-
-The **reported decomposition closure error** is:
+Define:
 
 ```text
-E_closure = reported_full_expected_net_gain
-            - (-reported_query_cost
-               + reported_immediate_hit_value
-               + reported_miss_probability * reported_value_after_miss)
+E_closure
+= reported_full_expected_net_gain
+  - [-reported_query_cost
+     + reported_immediate_hit_value
+     + reported_miss_probability * reported_value_after_miss].
 ```
 
-This separates failure to estimate the components from failure to combine them arithmetically.
+This distinguishes estimating the wrong components from combining stated components incorrectly.
+
+A particularly diagnostic pattern is:
+
+```text
+E_closure approximately 0
+E_option strongly negative
+```
+
+which would mean the model performs the Bellman arithmetic coherently but underprices the future state.
+
+## Primary comparison
+
+The primary treatment comparison is **wedge-only decision agreement**:
+
+```text
+Calibrated state vs Bellman decomposition
+```
+
+on costs `0.090`, `0.100`, `0.120`, and `0.125`.
+
+Useful paired transitions are:
+
+```text
+calibrated STOP -> Bellman QUERY   when oracle = QUERY
+calibrated QUERY -> Bellman STOP   when oracle = QUERY
+```
+
+The first is a direct treatment rescue of a myopic stopping error.
 
 ## Interpretation matrix
 
-- Exp 04 rescues behavior, Exp 05 adds little: stopping failure is mainly state/belief calibration.
-- Exp 04 does not rescue, Exp 05 does: stopping failure is mainly dynamic decomposition / option-value reasoning.
-- Neither rescues: failure is deeper than explicit posterior or Bellman scaffolding and may reflect unstable policy-level meta-reasoning.
-- Both improve value estimates but not discrete actions: value representation and action policy are separable.
-- Bellman decomposition closes arithmetically but option-value error stays negative: the failure is not arithmetic; it is specifically future-value estimation.
+- Calibrated arm already succeeds on wedge states: exact state statistics plus natural reasoning are sufficient for dynamic continuation in this world.
+- Calibrated arm fails but Bellman arm succeeds: explicit future-option decomposition repairs a planning-horizon failure.
+- Both fail on wedge states with negative `E_option`: future policy value remains systematically omitted even under explicit scaffolding.
+- Both fail but `E_option` is accurate: the error lies downstream, such as composition or action/value coupling.
+- Bellman arm over-continues at cost `0.130`: the scaffold induces a generic continuation bias rather than calibrated dynamic reasoning.
 
 ## Anti-leakage constraints
 
-- Never use `oracle.best_query` in a prompt because the oracle implementation returns `None` at STOP states.
-- Derive the highest-prior remaining candidate directly from the remaining target masses, independently of the STOP/CONTINUE decision.
-- Never expose `oracle_advantage`, oracle boundary, oracle decision, or any sign-equivalent quantity.
-- Counterfactual states are generated independently of the model's prior STOP decisions.
-- `evaluated_query` is chosen by the model; its exact Q-value is computed only after the response for diagnostics.
+- Never expose `oracle.best_query`; it becomes `None` at oracle STOP states.
+- Derive the highest-mass remaining candidate directly from target masses.
+- Never expose `oracle_advantage`, oracle decision, a dynamic stopping boundary, or any sign-equivalent quantity.
+- The model selects `evaluated_query`; exact `Q*(s,q)` is computed only after the response.
+- The condition names are internal records and are never included in the model prompt.
 
 ## Failure tolerance
 
-Provider requests use bounded retries for transient timeouts, rate limits, and server errors. Exp 05 also writes each completed probe immediately and records exhausted-request errors rather than discarding the entire sweep. A failed API call therefore cannot erase already collected observations.
+Provider requests use bounded retries for transient timeouts, rate limits, and server errors. Completed probes are written immediately to `probes.jsonl`, and exhausted request errors are recorded instead of aborting the entire sweep.
 
 ## Replication requirement
 
-After mechanism selection, repeat each boundary-neighborhood state multiple times and across at least one additional model. Single-probe state curves are hypothesis-generating, not sufficient for a stable model-level estimate.
+This cost sweep is still a mechanism-discovery experiment. Any apparent wedge effect or Bellman rescue must be repeated multiple times per condition and across at least one additional model family before it is promoted to a stable model-level claim.
