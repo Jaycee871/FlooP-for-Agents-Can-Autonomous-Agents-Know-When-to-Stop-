@@ -2,9 +2,6 @@ name: Exp 05b counterfactual transition audit
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/exp05b-transition-audit.yml"
 
 permissions:
   contents: read
