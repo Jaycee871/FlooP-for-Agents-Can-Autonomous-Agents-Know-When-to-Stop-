@@ -2,9 +2,6 @@ name: Exp 06 second-model replication — DeepSeek V4 Flash
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/exp06-second-model-deepseek.yml"
 
 permissions:
   contents: read
