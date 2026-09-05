@@ -1,0 +1,36 @@
+{
+  "arms": {
+    "raw": {
+      "n": 12,
+      "decision_agreement_rate": 0.5833333333333334,
+      "reported_value_sign_accuracy": 0.5833333333333334,
+      "decision_value_self_consistency": 1.0,
+      "mean_expected_gain_abs_error": 0.06946902774144907,
+      "premature_stop_rate_pre_boundary": 0.6666666666666666,
+      "excess_query_rate_at_or_after_boundary": 0.16666666666666666,
+      "invalid_query_rate": 0.3333333333333333
+    },
+    "calibrated": {
+      "n": 12,
+      "decision_agreement_rate": 1.0,
+      "reported_value_sign_accuracy": 1.0,
+      "decision_value_self_consistency": 1.0,
+      "mean_expected_gain_abs_error": 0.03937812712000644,
+      "premature_stop_rate_pre_boundary": 0.0,
+      "excess_query_rate_at_or_after_boundary": 0.0,
+      "invalid_query_rate": 0.0
+    }
+  },
+  "paired_n": 12,
+  "raw_wrong_calibrated_correct": 5,
+  "raw_correct_calibrated_wrong": 0,
+  "net_corrected_pairs": 5,
+  "model": "openai/gpt-oss-20b",
+  "provenance": {
+    "workflow_run_id": 33935198595,
+    "head_sha": "39a31250fd7d2d002b165c7ff400cb40906ed265",
+    "artifact_id": 9959999600,
+    "artifact_sha256": "594ec53f095d6e6cde92d28aec4948721e3b0cfb0b8dc9fcd84f0e6ed54f41b2",
+    "note": "Corrected non-leaky run. Earlier leaky and timeout-interrupted runs are excluded from inference."
+  }
+}
