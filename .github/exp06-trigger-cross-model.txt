@@ -1,0 +1,2 @@
+trigger: hardened Exp06 cross-model rerun
+reason: 120-minute workflow budget + scientific completeness gate + larger GPT output budget
