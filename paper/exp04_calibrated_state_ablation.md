@@ -49,41 +49,69 @@ The prompt never exposes:
 - any field whose missing/present status depends on the oracle decision;
 - any sign-equivalent transformation of the oracle continuation value.
 
-## Outcomes
+## Corrected run result
 
-For each arm record:
+Model: `openai/gpt-oss-20b`
 
-- STOP/QUERY agreement with the exact oracle;
-- sign accuracy of the model-reported continuation value;
-- decision/value self-consistency;
-- mean absolute continuation-value error;
-- premature-stop rate before the oracle boundary;
-- excess-query rate at or after the oracle boundary;
-- invalid-query rate.
+The corrected, non-leaky run completed all 12 paired boundary-neighborhood states.
 
-Paired state-level outcomes include:
+| Metric | Raw | Calibrated state |
+|---|---:|---:|
+| Decision agreement | 7/12 = 58.3% | 12/12 = 100% |
+| Reported-value sign accuracy | 7/12 = 58.3% | 12/12 = 100% |
+| Decision/value self-consistency | 100% | 100% |
+| Mean absolute continuation-value error | 0.06947 | 0.03938 |
+| Premature-stop rate before boundary | 66.7% | 0% |
+| Excess-query rate at/after boundary | 16.7% | 0% |
+| Invalid-query rate among QUERY actions | 33.3% | 0% |
 
-```text
-raw wrong -> calibrated correct
-raw correct -> calibrated wrong
-net corrected pairs
-```
-
-## Interpretation
+At the paired-state level:
 
 ```text
-Strong calibrated-state rescue
-    -> belief/state calibration is an important stopping bottleneck.
-
-Little or no rescue
-    -> the agent can be told where it is epistemically and still misvalue whether
-       preserving another action is worthwhile; test dynamic option-value reasoning.
-
-Value estimates improve but actions do not
-    -> value representation and discrete stopping policy are partly separable.
+raw wrong -> calibrated correct: 5
+raw correct -> calibrated wrong: 0
+net corrected pairs: +5
 ```
 
-The next gated experiment, Exp 05, performs an explicit Bellman decomposition to test the future-option-value hypothesis.
+The mean absolute continuation-value error decreased by about 43.3%. The median absolute error decreased more sharply, from about `0.03555` to `0.00880`, although one calibrated state still showed a large magnitude error despite choosing the correct action.
+
+## What was repaired?
+
+The raw responses reveal concrete state-estimation failures rather than merely noisy thresholding. Examples include underestimating the posterior probability that a target still exists, reverting to the original prior after multiple misses, and in one post-boundary state attempting to query an already-failed candidate.
+
+Supplying exact state statistics eliminated every observed discrete stopping error in this 12-state sweep. This is strong mechanism-discovery evidence that **state representation / posterior tracking is an important bottleneck for endogenous stopping** in this setting.
+
+The result is stronger than a generic prompt-improvement claim because the calibrated arm does not receive the oracle action or continuation-value sign. It receives only descriptive information about the current state.
+
+## Important limitation: this sweep does not require non-myopic option-value reasoning
+
+The 100% calibrated decision agreement must not be over-interpreted.
+
+In the standard Exp 03 conditions, every probed pre-boundary state also has a positive immediate one-step gain for the highest-probability query:
+
+```text
+p_hit * reward - query_cost > 0
+```
+
+and every probed stopping state has non-positive one-step gain. Therefore the sign of the myopic one-step rule agrees with the sign of the full dynamic oracle throughout this particular boundary-neighborhood sweep.
+
+Consequently, Exp 04 shows that exact state statistics are sufficient to repair the observed decisions **in this regime**, but it does not establish that the model can correctly value the future option to act again after a miss. A model could achieve the observed 12/12 decisions by applying a one-step threshold once the probabilities are supplied.
+
+This limitation directly motivates the next experiment.
+
+## Exp 05 design implication — create an option-value wedge
+
+Exp 05 should not simply repeat the same boundary states with a longer calculation prompt. Instead it should construct states satisfying:
+
+```text
+best immediate one-step gain < 0
+but
+full Bayes-optimal continuation value > 0
+```
+
+These **option-value wedge states** make future continuation causally relevant to the sign of the correct action. A myopic agent must STOP; a dynamically correct agent must QUERY.
+
+The Bellman-decomposition treatment can then test whether explicitly representing the value preserved after a miss repairs this deliberately non-myopic decision.
 
 ## Run integrity note
 
@@ -91,8 +119,8 @@ The first implementation of this ablation was discarded for inference because it
 
 The first corrected run was interrupted by a transient hosted-inference read timeout after two completed probes. Because that version only wrote results at the end of the sweep, those partial observations were not promoted to evidence.
 
-The provider adapter was subsequently hardened with bounded retries and a longer timeout before launching the corrected ablation again. These infrastructure events are tracked separately from empirical outcomes and must not be interpreted as model behavior.
+The provider adapter was subsequently hardened with bounded retries and a longer timeout before launching the corrected ablation again. The completed corrected run is the result reported above. Infrastructure events are tracked separately from empirical outcomes and are not interpreted as model behavior.
 
 ## Replication requirement
 
-The boundary-neighborhood sweep is a mechanism-discovery experiment. Any model-level claim selected from Exp 04 must subsequently be repeated across multiple probes per state and at least one additional model family.
+This 12-pair sweep is mechanism-discovery evidence, not yet a stable model-level estimate. The calibrated-state rescue should be repeated across multiple probes per state and at least one additional model family.
