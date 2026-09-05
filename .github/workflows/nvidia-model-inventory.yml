@@ -2,9 +2,6 @@ name: NVIDIA model inventory
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/nvidia-model-inventory.yml"
 
 permissions:
   contents: read
