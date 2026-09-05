@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import statistics
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,10 @@ class NeutralReasoningClient(NvidiaClient):
     Exp 05b calls `chat(..., reasoning_effort="low")`. Some NVIDIA-hosted models
     do not expose the same reasoning-control surface. For the cross-model replication,
     ignore that optional control and hold the task prompt itself constant.
+
+    EXP06_MAX_TOKENS can raise the generation budget for models that spend a large
+    fraction of their completion budget on hidden/provider-side reasoning before
+    emitting the required JSON answer.
     """
 
     def chat(
@@ -37,10 +42,14 @@ class NeutralReasoningClient(NvidiaClient):
         max_tokens: int = 4096,
         reasoning_effort: str | None = None,
     ):
+        configured = os.getenv("EXP06_MAX_TOKENS")
+        effective_max_tokens = max_tokens
+        if configured:
+            effective_max_tokens = max(max_tokens, int(configured))
         return super().chat(
             messages,
             temperature=temperature,
-            max_tokens=max_tokens,
+            max_tokens=effective_max_tokens,
             reasoning_effort=None,
         )
 
@@ -81,6 +90,48 @@ def coupling_direction(record: dict[str, Any]) -> str:
     if value <= 0 and action == "QUERY":
         return "nonpositive_value_to_query"
     return "consistent"
+
+
+def scientific_validity(
+    records: list[dict[str, Any]],
+    *,
+    repeats: int,
+    condition_ids: list[str],
+) -> dict[str, Any]:
+    """Separate workflow completion from scientific completeness.
+
+    A replication is scientifically complete only when every expected
+    condition×repeat probe exists and none is an error record. This prevents a green
+    workflow, partial artifact, or timeout-truncated run from being mistaken for a
+    valid experiment.
+    """
+
+    expected_records = repeats * len(condition_ids)
+    valid_records = [r for r in records if "error" not in r]
+    error_records = [r for r in records if "error" in r]
+    counts = Counter(str(r.get("condition_id")) for r in valid_records)
+    expected_counts = {condition_id: repeats for condition_id in condition_ids}
+    observed_counts = {condition_id: counts.get(condition_id, 0) for condition_id in condition_ids}
+    per_condition_complete = all(
+        observed_counts[condition_id] == expected_counts[condition_id]
+        for condition_id in condition_ids
+    )
+    complete = (
+        len(records) == expected_records
+        and len(valid_records) == expected_records
+        and not error_records
+        and per_condition_complete
+    )
+    return {
+        "expected_records": expected_records,
+        "observed_records": len(records),
+        "valid_records": len(valid_records),
+        "error_records": len(error_records),
+        "expected_counts_by_condition": expected_counts,
+        "valid_counts_by_condition": observed_counts,
+        "per_condition_complete": per_condition_complete,
+        "complete": complete,
+    }
 
 
 def summarize(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -169,6 +220,11 @@ def main() -> None:
         type=Path,
         default=Path("results/exp06_repeated_transition_audit"),
     )
+    parser.add_argument(
+        "--require-complete",
+        action="store_true",
+        help="Exit non-zero unless every expected probe is present and error-free.",
+    )
     args = parser.parse_args()
     if args.repeats <= 0:
         raise ValueError("--repeats must be positive")
@@ -177,6 +233,8 @@ def main() -> None:
     model = client.resolve_model()
     print(f"Selected NVIDIA model: {model}")
     print("Cross-model replication mode: provider-specific reasoning_effort disabled")
+    if os.getenv("EXP06_MAX_TOKENS"):
+        print(f"Exp06 minimum generation budget: {os.environ['EXP06_MAX_TOKENS']} tokens")
 
     safe_model_name = model.replace("/", "__").replace(":", "_")
     model_dir = args.out_dir / safe_model_name
@@ -217,16 +275,27 @@ def main() -> None:
                     f"error={record.get('error')}"
                 )
 
+    condition_ids = [c.condition_id for c in conditions]
     result = summarize(records)
     result["model"] = model
     result["repeats"] = args.repeats
-    result["conditions"] = [c.condition_id for c in conditions]
+    result["conditions"] = condition_ids
     result["reasoning_effort_disabled"] = True
+    result["scientific_validity"] = scientific_validity(
+        records,
+        repeats=args.repeats,
+        condition_ids=condition_ids,
+    )
     (model_dir / "summary.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
+
+    if args.require_complete and not result["scientific_validity"]["complete"]:
+        print("SCIENTIFIC_VALIDITY_GATE: FAIL")
+        raise SystemExit(2)
+    print("SCIENTIFIC_VALIDITY_GATE: PASS")
 
 
 if __name__ == "__main__":
