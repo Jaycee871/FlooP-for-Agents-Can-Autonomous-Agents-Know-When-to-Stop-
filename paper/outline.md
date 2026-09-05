@@ -69,7 +69,7 @@ Current-state representation
 Counterfactual transition calibration
     -> If I act and observe a miss, what information state will I be in next?
 
-Future-policy value estimation
+Successor / future-policy value estimation
     -> What is the value of acting optimally from that successor state?
 
 Arithmetic composition
@@ -237,76 +237,81 @@ The problem is not merely systematic omission; future value can swing between se
 
 At cost `0.130`, the Bellman arm reported a negative full expected net gain (`-0.043776904`) but emitted `QUERY`. Thus a correctly signed stated value need not control the final termination action.
 
-#### Supplemental cost-0.125 recovery — transition semantics become visible
+#### Supplemental cost-0.125 recovery
 
-A separate recovery run with a larger output allowance generated a new stochastic Bellman response at the near-boundary wedge state.
+A separate stochastic recovery produced exact current one-step quantities and exact arithmetic closure, but set value after miss to zero and stopped prematurely. Its rationale claimed the target would be ruled out after a single miss.
 
-Exact quantities:
-
-```text
-myopic gain                      = -0.0387769
-exact value after miss           = +0.0529374
-full dynamic continuation value  = +0.0095961
-oracle action                    = QUERY
-```
-
-Recovered model quantities:
-
-```text
-current hit probability          ≈ exact
-miss probability                 ≈ exact
-query cost                       = exact
-estimated value after miss       = 0.0
-full expected net gain           = -0.038776904
-decision                         = STOP
-closure error                    = 0.0
-```
-
-The model's rationale states that after a miss "the target is ruled out." That is a wrong hypothetical state transition: a miss rules out the queried candidate, not target existence across all remaining candidates.
-
-This suggests an upstream failure that is more specific than generic future-value miscalibration:
-
-> **An agent can know where it is now yet fail to represent where one more action would leave it.**
-
-Because this is one supplemental stochastic observation, it motivates rather than settles the mechanism claim.
+This suggested a possible transition-semantics failure, motivating a direct audit rather than trusting the rationale as a mechanism explanation.
 
 ### Exp 05b — counterfactual transition audit
-Exp 05b directly distinguishes transition-model failure from successor-value failure.
+Exp 05b directly tests whether the model predicts the wrong successor information state or instead misvalues an approximately correct successor state.
 
-For costs:
-
-```text
-0.090, 0.100, 0.120, 0.125, 0.130
-```
-
-the model receives exact **current-state** statistics and a fixed evaluated candidate, but no successor-state information. It must predict the state after a hypothetical miss:
-
-- posterior target-existence probability after miss;
-- best remaining hit probability after miss;
-- best remaining candidate;
-- optimal future-policy value from that successor state;
-- full value of initiating the current query;
-- final STOP/QUERY action.
-
-Exact successor statistics are computed only after the response.
-
-Primary classification:
+Completed five-state result:
 
 ```text
-transition wrong + future value wrong
-    -> counterfactual transition failure upstream
-
-transition approximately right + future value wrong
-    -> successor-value failure
-
-transition/value right + action wrong
-    -> value-to-policy coupling failure
-
-all right
-    -> locally coherent dynamic termination judgment
+decision agreement                    = 40.0%
+decision/value self-consistency       = 80.0%
+mean abs current-hit error             = 2.96e-10
+mean abs successor-existence error     = 0.00407
+mean abs successor-hit error           = 0.00657
+successor-best-candidate accuracy      = 100%
+mean abs future-value error            = 0.13305
+mean abs full-Q error                  = 0.12141
+mean abs decomposition-closure error   = 0.000168
 ```
 
-Status: implementation unit tests passed and the first NVIDIA transition-audit run has been launched.
+This result narrows the mechanism substantially.
+
+The model represented the hypothetical successor state fairly well: after candidate `1` misses, it consistently predicted target-existence probability near the exact value, predicted the best next hit probability reasonably closely, and selected candidate `2` correctly in all five conditions.
+
+Yet successor value remained badly unstable.
+
+Examples:
+
+```text
+cost 0.100:
+exact successor value     = +0.198576
+reported successor value  = 0.0
+agent action              = STOP
+oracle action             = QUERY
+
+cost 0.120:
+exact successor value     = +0.082065
+reported successor value  = 0.0
+agent action              = STOP
+oracle action             = QUERY
+```
+
+Therefore the current evidence favors **successor-value failure downstream of an approximately correct transition representation**, rather than a universal inability to predict the next Bayesian state.
+
+The earlier cost-`0.125` recovery rationale should accordingly be treated as a response-specific error, not a stable causal diagnosis. When explicitly audited, the model can represent that a target may still exist after the miss.
+
+#### Exp 05b value-to-action decoupling
+
+At cost `0.125`, the model predicted the successor state almost exactly and reported:
+
+```text
+estimated value after miss  = +0.4069
+full expected net gain      = +0.3322
+```
+
+but still emitted:
+
+```text
+STOP
+```
+
+Thus the experiment now contains both directions of action/value contradiction:
+
+```text
+Exp 05 cost 0.130:
+reported value < 0, action = QUERY
+
+Exp 05b cost 0.125:
+reported value > 0, action = STOP
+```
+
+This makes value-to-policy coupling an independently observable failure mode rather than a theoretical possibility.
 
 ### Exp 06 — repeated-state and cross-model replication
 After mechanism discovery, repeat critical states multiple times per condition and across at least one additional model family.
@@ -315,14 +320,20 @@ Priority targets:
 
 ```text
 Exp 04b residual near-boundary state
-wedge cost 0.090
 wedge cost 0.100
 wedge cost 0.120
 wedge cost 0.125
 dynamic-stop control cost 0.130
 ```
 
-Estimate distributions for current-state error, transition error, successor-value error, sign error, action-coupling error, and local regret.
+Estimate the joint distribution of:
+
+- current-state error;
+- counterfactual successor-state error;
+- successor/future-policy value error;
+- value-sign error;
+- value-to-action coupling error;
+- local stopping regret.
 
 ### Exp 07 — richer autonomous-agent environments
 Move beyond synthetic search to tool acquisition, retrieval, coding, and environments with irreversible or externally costly actions.
@@ -343,7 +354,7 @@ The goal is to test whether the same decomposition survives when continuation me
 - Boundary monotonicity / post-stop reversal count
 - Current-state calibration error
 - Counterfactual successor-state calibration error
-- Future-option-value / successor-value error
+- Successor / future-policy value error
 - Full evaluated-query value error
 - Bellman decomposition closure error
 - Value-to-policy coupling error
@@ -361,22 +372,24 @@ Exp 04 / Exp 04b
        generic dynamic-policy reminders alone do not.
 
 Exp 05
-    -> when myopic and dynamic decisions are forced apart, future-state reasoning
-       and future-policy valuation become independently visible.
+    -> when myopic and dynamic decisions are forced apart, successor-value reasoning
+       becomes independently visible and explicit Bellman scaffolding is not a monotone repair.
 
-Exp 05 Bellman arm
-    -> explicit decomposition can preserve arithmetic coherence while destabilizing
-       future-value estimates.
+Exp 05b
+    -> successor-state prediction can be fairly accurate while successor-policy value
+       remains badly miscalibrated.
 
-Exp 05 cost 0.130
-    -> a correctly signed value can fail to control the final action.
-
-Exp 05 cost 0.125 recovery
-    -> correct current-state numbers and exact arithmetic can coexist with a wrong
-       counterfactual transition model.
+Exp 05 + Exp 05b
+    -> value-to-action coupling can fail in both directions.
 ```
 
 The emerging object of study is **termination calibration as a layered metareasoning system**, not simply a stopping threshold.
+
+## Methodological implication
+
+A rationale can describe an error made in one response without identifying the model's persistent causal bottleneck. The cost-`0.125` recovery appeared to implicate transition semantics, but the explicit transition audit showed that the successor state could be represented fairly accurately while its value remained wrong.
+
+Therefore mechanism claims should rely on intervention and decomposed measurement rather than natural-language rationale inspection alone.
 
 ## Related-work positioning / novelty guard
 
@@ -384,11 +397,11 @@ The paper must explicitly acknowledge existing work on agentic abstention, cost-
 
 The defensible contribution is narrower:
 
-> We evaluate a native agent-emitted STOP as a calibrated metareasoning decision, separately from forced termination, against an exact state-dependent continuation-value oracle. The benchmark measures both directions of stopping error and decomposes failure into current-state representation, counterfactual transition prediction, future-policy valuation, composition, sign judgment, and value-to-policy coupling.
+> We evaluate a native agent-emitted STOP as a calibrated metareasoning decision, separately from forced termination, against an exact state-dependent continuation-value oracle. The benchmark measures both directions of stopping error and decomposes failure into current-state representation, counterfactual transition prediction, successor-policy valuation, composition, sign judgment, and value-to-policy coupling.
 
 ## Main empirical story
 
-> **Knowing where to act, knowing whether to continue, predicting where one more action will leave you, valuing the option to act again, and converting that value into a stopping action are separable competencies.**
+> **Knowing where to act, knowing whether to continue, predicting where one more action will leave you, valuing the policy available there, and converting that value into a stopping action are separable competencies.**
 
 A model may succeed at one while failing at another.
 
