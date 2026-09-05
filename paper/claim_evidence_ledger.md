@@ -100,9 +100,9 @@ One Bellman wedge response was truncated, so the denominators differ.
 
 Status: **treatment-specific first-sweep result.** The correct claim is not that Bellman prompting is generally harmful, only that an explicit decomposition did not reliably rescue this model in this experiment.
 
-### C4. Value-to-action coupling can fail in both directions
+### C4. Candidate value-to-action coupling failures appear in both directions
 
-Observed examples:
+Observed under the original elicitation:
 
 ```text
 Exp 05 cost 0.130:
@@ -114,7 +114,7 @@ reported continuation value > 0
 final action = STOP
 ```
 
-Status: **qualitative mechanism evidence.** Exp 06 estimates whether these contradictions recur under repeated sampling.
+Status: **candidate qualitative mechanism evidence, not yet a settled coupling claim.** The original transition-audit prompt specified the objective but did not state as explicitly as the mathematical formalization that incremental `Value(STOP) = 0`. At cost `0.125` the model invented another comparison baseline in its rationale. Exp 05c therefore supplies the zero STOP baseline and the sign-to-action mapping explicitly while keeping the continuation value hidden. If contradictions persist under that control, the coupling interpretation becomes substantially stronger; if they disappear, the earlier examples should be attributed at least partly to interface / prompt under-specification.
 
 ### C5. Natural-language rationale is insufficient as a causal mechanism diagnosis
 
@@ -130,14 +130,15 @@ The manuscript must not yet claim that:
 - successor-state prediction is generally easy for LLMs;
 - future-policy valuation is universally the dominant bottleneck;
 - Bellman prompting generally worsens agent performance;
+- value-to-action coupling is intrinsically defective independent of decision-interface specification;
 - the observed mechanism transfers unchanged to coding, retrieval, browser, or embodied agents;
 - the effect sizes are stable across model families.
 
-These are targets for Exp 06 and Exp 07.
+These are targets for Exp 05c, Exp 06, and Exp 07.
 
 ## Current strongest manuscript-safe formulation
 
-> **In a controlled Bayesian search benchmark with an exact continuation-value oracle, stopping behavior can dissociate from next-action competence. For the initial model studied, interventions further separate current-state representation, successor-state prediction, successor-policy valuation, arithmetic composition, value sign, and final STOP/QUERY choice. Repeated-state and cross-model experiments test whether this layered profile generalizes.**
+> **In a controlled Bayesian search benchmark with an exact continuation-value oracle, stopping behavior can dissociate from next-action competence. For the initial model studied, interventions further separate current-state representation, successor-state prediction, successor-policy valuation, arithmetic composition, value sign, and final STOP/QUERY choice. Repeated-state, explicit-interface, and cross-model experiments test which of these separations persist under stronger controls.**
 
 ## Promotion rule
 
@@ -147,4 +148,5 @@ A tier-C mechanism may be promoted toward a broader empirical claim only after:
 2. uncertainty / distribution reporting rather than a single generation;
 3. replication in at least one additional model family;
 4. preservation of the same exact oracle and treatment semantics;
-5. explicit accounting for provider or output-format failures as infrastructure events rather than model decisions.
+5. explicit accounting for provider or output-format failures as infrastructure events rather than model decisions;
+6. removal of prompt-level alternative explanations when the mechanism concerns a decision-interface mapping.
