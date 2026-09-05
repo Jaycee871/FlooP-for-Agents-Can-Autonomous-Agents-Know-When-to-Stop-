@@ -1,0 +1,40 @@
+name: Exp 06 second-model replication — Gemma 4
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/exp06-second-model-gemma4.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  replicate-gemma4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+      NVDIA_API_KEY: ${{ secrets.NVDIA_API_KEY }}
+      NVIDIA_MODEL: google/gemma-4-31b-it
+      NVIDIA_TIMEOUT: "180"
+      NVIDIA_MAX_RETRIES: "3"
+      NVIDIA_RETRY_BACKOFF: "2"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install benchmark
+        run: python -m pip install -e .
+      - name: Run repeated transition audit
+        run: python experiments/exp06_repeated_transition_audit.py --repeats 3
+      - name: Upload replication probes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp06-gemma-4-31b-it
+          path: results/exp06_repeated_transition_audit/google__gemma-4-31b-it/
+          if-no-files-found: warn
+          retention-days: 14
