@@ -1,0 +1,20 @@
+{
+  "n": 5,
+  "n_errors": 0,
+  "decision_agreement_rate": 0.4,
+  "decision_value_self_consistency": 0.8,
+  "mean_abs_current_hit_error": 2.956110356500119e-10,
+  "mean_abs_successor_existence_error": 0.004071804550773717,
+  "mean_abs_successor_hit_error": 0.006573195439807594,
+  "successor_candidate_accuracy": 1.0,
+  "mean_abs_future_value_error": 0.1330487594012214,
+  "mean_abs_full_q_error": 0.12140910305185679,
+  "mean_abs_closure_error": 0.00016778704752000578,
+  "model": "openai/gpt-oss-20b",
+  "provenance": {
+    "workflow_run_id": 33937756661,
+    "head_sha": "fd99a91e40681228f38182f4f40f4bc064904133",
+    "artifact_id": 9960751319,
+    "artifact_sha256": "84dd9d585857b39e4d28d1a14f930af71d62e231ee32efc3bcc6ee74b5681fed"
+  }
+}
