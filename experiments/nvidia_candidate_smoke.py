@@ -8,9 +8,10 @@ from floop_agents.providers.nvidia import NvidiaClient
 
 
 CANDIDATES = [
-    "nvidia/llama-3.3-nemotron-super-49b-v1",
-    "z-ai/glm-5.1",
-    "deepseek-ai/deepseek-v4-flash",
+    "google/gemma-4-31b-it",
+    "deepseek-ai/deepseek-v4-flash-0731",
+    "deepseek-ai/deepseek-v4-pro-0813",
+    "nvidia/nemotron-3-super-120b-a12b",
 ]
 
 
