@@ -200,7 +200,7 @@ M(s, q*)  one-step myopic continuation value.
 
 If the model's estimates are systematically closer to `M` than to `C*`, premature stopping can be interpreted as a **planning-horizon failure** rather than generic probability miscalibration.
 
-This diagnostic is particularly important for Exp 03.
+This diagnostic motivates the Bellman mechanism experiment.
 
 ## 9. Realized utility is not stopping rationality
 
@@ -216,8 +216,127 @@ Therefore we report realized utility and local normative regret separately.
 
 The benchmark does **not** infer rationality from whichever policy happened to earn more utility in a single realization.
 
-## 10. Core empirical claim enabled by the formalization
+## 10. Mechanistic decomposition of continuation-value error
+
+The scalar error `Â(s) - C*(s)` establishes miscalibration but does not identify its source. To localize the mechanism, Exp 04 and Exp 05 separate **state calibration** from **dynamic future-value reasoning**.
+
+### 10.1 State-calibration intervention
+
+Let `z(s)` denote exact descriptive statistics of the current posterior state:
+
+```text
+z(s) = {
+  posterior target-existence probability,
+  highest one-query hit probability,
+  highest-mass remaining candidate
+}
+```
+
+The calibrated-state intervention supplies `z(s)` while withholding `C*(s)`, its sign, the stopping boundary, and the oracle action. A change in stopping accuracy under this intervention estimates how much of the error can be repaired by making the current information state explicit.
+
+This is an intervention on **state representation**, not an oracle-action hint.
+
+### 10.2 Query-specific Bellman decomposition
+
+For a model-selected evaluated query `q_hat`, ask the model to report:
+
+```text
+p_hat_hit(s, q_hat)
+r_hat_hit(s, q_hat) = p_hat_hit(s, q_hat) R
+p_hat_miss(s, q_hat)
+V_hat_after_miss(s, q_hat)
+Q_hat(s, q_hat)
+```
+
+with the intended identity:
+
+```text
+Q_hat(s, q_hat)
+= -c_hat
+  + r_hat_hit(s, q_hat)
+  + p_hat_miss(s, q_hat) V_hat_after_miss(s, q_hat).
+```
+
+The evaluated query is recorded even when the final decision is STOP. Otherwise a reported STOP-state continuation value would not identify which concrete action was being priced.
+
+### 10.3 Component errors
+
+Because the environment oracle is exact, every component can be scored independently.
+
+Immediate-hit-value error:
+
+```text
+E_hit(s,q) = r_hat_hit(s,q) - p_q(s) R
+```
+
+Miss-probability error:
+
+```text
+E_miss(s,q) = p_hat_miss(s,q) - [1 - p_q(s)]
+```
+
+Future-option-value omission error:
+
+```text
+E_option(s,q) = V_hat_after_miss(s,q) - V*(s_q^-)
+```
+
+Full evaluated-query value error:
+
+```text
+E_Q(s,q) = Q_hat(s,q) - Q*(s,q)
+```
+
+A systematically negative `E_option` is the specific signature of undervaluing the option to continue acting after the next unsuccessful observation.
+
+### 10.4 Decomposition closure
+
+Even if individual components are reasonable, the model may combine them inconsistently. Define:
+
+```text
+E_closure(s,q)
+= Q_hat(s,q)
+  - [-c_hat
+     + r_hat_hit(s,q)
+     + p_hat_miss(s,q) V_hat_after_miss(s,q)].
+```
+
+This separates **arithmetic/composition failure** from **future-value estimation failure**.
+
+A useful diagnostic pattern is:
+
+```text
+E_closure ≈ 0
+but
+E_option << 0
+```
+
+which means the model combines its stated quantities coherently but systematically undervalues the future policy after a miss.
+
+### 10.5 Mechanism interpretation
+
+The intervention sequence supports the following causal-style diagnostic logic without claiming full causal identification of internal representations:
+
+```text
+Exact state statistics repair stopping
+    -> current-state estimation is an important bottleneck.
+
+Exact state statistics do not repair stopping,
+Bellman decomposition does
+    -> dynamic continuation / future-option reasoning is an important bottleneck.
+
+Reported values improve but actions do not
+    -> value estimation and discrete action policy are separable.
+
+Neither intervention repairs stopping
+    -> the failure is not explained by either explicit state calibration or
+       explicit Bellman scaffolding alone.
+```
+
+## 11. Core empirical claim enabled by the formalization
 
 The strongest target claim is not that LLM agents simply "overthink" or "fail to stop." It is that:
 
 > **Termination competence is a separately measurable calibration problem. An agent can select the Bayes-optimal next action while misestimating the value of taking any further action at all.**
+
+The mechanism experiments strengthen this claim by asking a second question: when that marginal-value judgment fails, is the error in representing the current state, valuing the future policy preserved after another observation, or converting an estimated value into a stopping action?
