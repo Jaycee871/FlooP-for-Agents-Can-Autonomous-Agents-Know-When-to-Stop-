@@ -1,0 +1,36 @@
+name: NVIDIA candidate-model smoke probe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/nvidia-candidate-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+      NVDIA_API_KEY: ${{ secrets.NVDIA_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install benchmark
+        run: python -m pip install -e .
+      - name: Probe candidate models
+        run: python experiments/nvidia_candidate_smoke.py
+      - name: Upload probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvidia-candidate-smoke
+          path: results/nvidia_candidate_smoke/
+          if-no-files-found: warn
+          retention-days: 7
