@@ -2,6 +2,9 @@ name: Exp 06 repeated cross-model transition replication
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/exp06-trigger-cross-model.txt"
 
 permissions:
   contents: read
