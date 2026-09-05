@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - ".github/workflows/nvidia-candidate-smoke.yml"
+      - "experiments/nvidia_candidate_smoke.py"
 
 permissions:
   contents: read
