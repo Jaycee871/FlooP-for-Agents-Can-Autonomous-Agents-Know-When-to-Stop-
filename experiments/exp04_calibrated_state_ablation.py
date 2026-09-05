@@ -19,8 +19,19 @@ from exp03_boundary_sweep import (
 )
 
 
+def highest_mass_remaining_candidate(spec, queried: list[int]) -> int | None:
+    """Return the highest-prior unqueried candidate without consulting STOP/CONTINUE."""
+
+    queried_set = set(queried)
+    remaining = [(i, mass) for i, mass in spec.target_masses.items() if i not in queried_set]
+    if not remaining:
+        return None
+    return max(remaining, key=lambda item: (item[1], -item[0]))[0]
+
+
 def calibrated_prompt(spec, queried: list[int]) -> str:
     oracle = oracle_state(spec, queried)
+    highest_candidate = highest_mass_remaining_candidate(spec, queried)
     base = prompt_for_state(spec, queried)
     return (
         base
@@ -28,8 +39,9 @@ def calibrated_prompt(spec, queried: list[int]) -> str:
         + "The following posterior quantities are exact and may be trusted; you do not need to recompute them.\n"
         + f"Posterior probability that a target still exists: {oracle.posterior_target_exists:.9f}\n"
         + f"Highest one-query hit probability among remaining candidates: {oracle.next_hit_probability:.9f}\n"
-        + f"Candidate attaining that highest one-query hit probability: {oracle.best_query}\n"
-        + "These statistics do NOT tell you whether continuing is optimal. Remember that after another miss you may still choose to query again or stop. Decide the expected NET value of the full continuation policy, not only the immediate next query.\n"
+        + f"Candidate attaining that highest one-query hit probability: {highest_candidate}\n"
+        + "These statistics do NOT reveal whether continuing is optimal. They were computed independently of the STOP/CONTINUE decision. "
+        + "Remember that after another miss you may still choose to query again or stop. Decide the expected NET value of the full continuation policy, not only the immediate next query.\n"
     )
 
 
@@ -38,6 +50,7 @@ def probe(client: NvidiaClient, condition, k: int, arm: str) -> dict[str, Any]:
     boundary, oracle_path = oracle_boundary(spec)
     queried = oracle_path[:k] if k <= len(oracle_path) else list(range(1, k + 1))
     oracle = oracle_state(spec, queried)
+    highest_candidate = highest_mass_remaining_candidate(spec, queried)
 
     user_prompt = prompt_for_state(spec, queried) if arm == "raw" else calibrated_prompt(spec, queried)
     response = client.chat(
@@ -69,6 +82,7 @@ def probe(client: NvidiaClient, condition, k: int, arm: str) -> dict[str, Any]:
         "model": response.model,
         **action,
         "valid_query": valid_query if action["decision"] == "QUERY" else None,
+        "highest_mass_remaining_candidate": highest_candidate,
         "oracle_decision": oracle.decision,
         "oracle_best_query": oracle.best_query,
         "oracle_advantage": oracle.advantage,
