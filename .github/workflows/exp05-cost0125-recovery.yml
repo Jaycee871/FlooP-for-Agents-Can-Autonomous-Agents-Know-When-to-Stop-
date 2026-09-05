@@ -2,9 +2,6 @@ name: Exp 05 cost-0.125 Bellman recovery
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/exp05-cost0125-recovery.yml"
 
 permissions:
   contents: read
