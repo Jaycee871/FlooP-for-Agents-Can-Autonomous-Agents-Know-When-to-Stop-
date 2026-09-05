@@ -1,0 +1,54 @@
+name: Exp 06 repeated cross-model transition replication
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/exp06-repeated-cross-model.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  replicate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: gpt-oss-20b
+            model: openai/gpt-oss-20b
+            result_dir: openai__gpt-oss-20b
+          - label: gemma-3-27b-it
+            model: google/gemma-3-27b-it
+            result_dir: google__gemma-3-27b-it
+    env:
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+      NVDIA_API_KEY: ${{ secrets.NVDIA_API_KEY }}
+      NVIDIA_MODEL: ${{ matrix.model }}
+      NVIDIA_TIMEOUT: "180"
+      NVIDIA_MAX_RETRIES: "3"
+      NVIDIA_RETRY_BACKOFF: "2"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install benchmark
+        run: python -m pip install -e .
+
+      - name: Run repeated transition audit
+        run: python experiments/exp06_repeated_transition_audit.py --repeats 3
+
+      - name: Upload replication probes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp06-${{ matrix.label }}
+          path: results/exp06_repeated_transition_audit/${{ matrix.result_dir }}/
+          if-no-files-found: warn
+          retention-days: 14
