@@ -51,50 +51,42 @@ This supports a direct calibration target rather than inferring stopping compete
 
 - **H1 — Competence / termination separability.** Correct next-action selection does not imply correct stop/continue judgment.
 - **H2 — Continuation-value miscalibration.** Agents can misestimate the sign or magnitude of marginal continuation value near the optimal stopping boundary.
-- **H3 — Boundary displacement.** Agent stopping boundaries can be shifted relative to the Bayes-optimal boundary; the direction of displacement may depend on cost and uncertainty.
+- **H3 — Boundary displacement.** Agent stopping boundaries can be shifted relative to the Bayes-optimal boundary; the direction may depend on cost and uncertainty.
 - **H4 — Boundary incoherence.** Counterfactual state probes can reveal non-monotone STOP/QUERY behavior even when the normative boundary is monotone.
 - **H5 — Outcome-luck confound.** Realized utility can reward a normatively wrong stop decision in a lucky hidden world, so realized utility alone is insufficient for evaluating stopping rationality.
-- **H6 — Mechanistic separability.** Stopping errors can arise from distinct failures in state representation, future-policy value estimation, arithmetic composition, sign judgment, or value-to-policy coupling.
-- **H7 — Treatment non-monotonicity.** A metareasoning scaffold that is normatively appropriate need not improve stopping and can destabilize a component estimate even while preserving internally coherent arithmetic.
+- **H6 — Mechanistic separability.** Stopping errors can arise from distinct failures in current-state representation, counterfactual transition prediction, future-policy valuation, arithmetic composition, sign judgment, or value-to-policy coupling.
+- **H7 — Treatment non-monotonicity.** A normatively appropriate metareasoning scaffold need not improve stopping and can destabilize a component estimate even while preserving internally coherent arithmetic.
 - **H8 — Cross-model separability.** Models with similar task competence may differ substantially in stopping calibration and in which repair mechanism helps them.
 
 ## Mechanism taxonomy
 
-The empirical program now distinguishes five internal stages rather than treating stopping as one scalar ability:
+The empirical program now distinguishes six internal stages:
 
 ```text
-State representation
-    -> What information state am I actually in?
+Current-state representation
+    -> What information state am I in now?
+
+Counterfactual transition calibration
+    -> If I act and observe a miss, what information state will I be in next?
 
 Future-policy value estimation
-    -> What is the value preserved after another observation?
+    -> What is the value of acting optimally from that successor state?
 
 Arithmetic composition
-    -> Can the component values be combined coherently?
+    -> Can current cost, immediate reward, and successor value be combined coherently?
 
 Sign judgment
-    -> Is continuation value positive or non-positive?
+    -> Is full continuation value positive or non-positive?
 
 Discrete STOP/QUERY policy
-    -> Does the action follow the value judgment?
+    -> Does the final action follow the value judgment?
 ```
 
-Observed behavior can fail at any one of these layers while other layers remain intact.
+A central emerging proposition is:
 
-At the behavioral level we separately track:
+> **Current-state calibration is not transition calibration; transition calibration is not continuation-value calibration; continuation-value calibration is not policy calibration.**
 
-```text
-Level 1 — Boundary bias
-The agent stops too early or too late relative to the oracle boundary.
-
-Level 2 — Boundary incoherence
-The agent emits STOP and later returns to QUERY under strictly stronger evidence for stopping.
-
-Level 3 — Mechanism localization
-The error is localized to one or more stages of the five-part pipeline above.
-```
-
-This prevents stopping errors from being collapsed into a generic "overthinking" or "underthinking" label.
+At the behavioral level we separately track boundary bias, boundary incoherence, and mechanism localization.
 
 ## Experimental phases and current evidence
 
@@ -105,22 +97,18 @@ Deterministic synthetic trajectories verify that endogenous stopping, premature 
 Use an NVIDIA-hosted model to confirm structured agent actions, real reasoning traces, and explicit agent-emitted termination.
 
 ### Exp 02 — Bayesian witness-search pilot
-Construct an uncertain search world with an exact Bayes-optimal stopping oracle.
-
-Initial result with `openai/gpt-oss-20b`:
+Under the standard world with `openai/gpt-oss-20b`:
 
 - oracle stopping boundary: 6 failed queries;
 - model stopped after 3 failed queries in both no-target and late-target trajectories;
-- at the stopping state the oracle continuation advantage remained about `+0.06895`;
-- the model reported about `-0.033` / `-0.031`;
+- oracle continuation advantage at the stopping state remained about `+0.06895`;
+- model reported about `-0.033` / `-0.031`;
 - query-choice agreement before stopping was perfect.
 
-Interpretation: the observed failure is **premature epistemic closure**, not inability to identify the best next query.
+Interpretation: **premature epistemic closure**, not inability to identify the best next query.
 
 ### Exp 03 — stopping-boundary calibration sweep
-Vary query cost while holding the prior family fixed.
-
-Standard conditions:
+Standard cost conditions:
 
 ```text
 query cost 0.03 -> oracle boundary 10 misses
@@ -128,29 +116,10 @@ query cost 0.05 -> oracle boundary 6 misses
 query cost 0.08 -> oracle boundary 4 misses
 ```
 
-Counterfactual probes show both premature stopping and, in some post-boundary states, excessive continuation. The model can therefore make both signs of termination error under controlled changes in state and cost.
-
-The sweep records:
-
-- model STOP/QUERY decision;
-- model-reported continuation value;
-- exact oracle continuation advantage;
-- one-step myopic value;
-- selected next query;
-- boundary displacement;
-- decision/value self-consistency;
-- post-STOP reversals under independent state probes.
+Counterfactual probes reveal both premature stopping and, in some post-boundary states, excessive continuation. This motivates treating termination as a calibration problem rather than a generic tendency to stop too early or too late.
 
 ### Exp 04 — calibrated-state ablation
-Probe states around each oracle boundary under two arms:
-
-```text
-raw state description
-vs.
-raw description + exact posterior state statistics
-```
-
-The corrected, non-leaky 12-pair run with `openai/gpt-oss-20b` produced:
+The corrected, non-leaky 12-pair run produced:
 
 ```text
 Raw decision agreement                 7/12  = 58.3%
@@ -165,38 +134,51 @@ Calibrated premature-stop rate          0%
 Raw excess-query rate post-boundary    16.7%
 Calibrated excess-query rate            0%
 
-Raw invalid-query rate                 33.3%
-Calibrated invalid-query rate           0%
-
 raw wrong -> calibrated correct        5
 raw correct -> calibrated wrong        0
 ```
 
-Mean absolute continuation-value error decreased from approximately `0.06947` to `0.03938`.
+This suggested that state representation / posterior tracking is an important stopping bottleneck, but the original treatment also contained an extra dynamic-policy reminder.
 
-This is strong mechanism-discovery evidence that **state representation / posterior tracking is an important stopping bottleneck** in the standard boundary world.
-
-However, the original treatment also contains a prompt-reminder difference: the calibrated treatment explicitly reminds the model to value the full continuation policy. Exp 04b therefore repeats the comparison with that reminder language held constant across arms, so the incremental effect of exact state information can be isolated.
-
-A second limitation is more important. In the standard Exp 04 states, the sign of the best one-step gain agrees with the sign of the full dynamic continuation value. Therefore a myopic one-step rule can obtain the correct action after receiving exact probabilities. Exp 04 does not by itself demonstrate representation of future option value.
+A second limitation is structural: in the standard Exp 04 states, the sign of the best one-step gain agrees with the sign of the full dynamic continuation value, so correct actions do not require non-myopic option-value reasoning.
 
 ### Exp 04b — instruction-matched state ablation
-Both arms receive the same dynamic-policy reminder:
+Exp 04b holds the dynamic-policy reminder constant across both arms.
+
+Completed result:
 
 ```text
-instruction-only arm
-= state description + dynamic-policy reminder
+Instruction-only decision agreement    3/12 = 25.0%
+State-calibrated decision agreement    11/12 = 91.7%
 
-state-calibrated arm
-= state description + same reminder + exact posterior statistics
+Instruction-only value-sign accuracy   25.0%
+State-calibrated value-sign accuracy   91.7%
+
+Instruction-only premature-stop rate   100%
+State-calibrated premature-stop rate   16.7%
+
+Instruction-only excess-query rate     50.0%
+State-calibrated excess-query rate      0%
+
+instruction wrong -> state correct      8
+instruction correct -> state wrong      0
 ```
 
-Purpose: isolate the causal contribution of exact state information from the contribution of reminder language.
+This strongly reduces the reminder-language confound. Exact state information remains highly consequential when the instruction wording is matched.
 
-Status: launched; treat the original Exp 04 comparison as a treatment effect until this control is complete.
+Crucially, mean absolute scalar continuation-value error did **not** improve:
+
+```text
+instruction-only MAE = 0.07307
+state-calibrated MAE  = 0.08930
+```
+
+Thus better current-state information can sharply improve the **sign/action boundary** without globally improving numeric value magnitude. Value-sign accuracy, magnitude calibration, and final action should therefore be reported separately.
+
+One residual calibrated error occurs immediately before the low-cost oracle boundary (`cost=0.03`, `k=9`), making that state a priority target for repeated sampling.
 
 ### Exp 05 — option-value wedge / Bellman decomposition diagnostic
-Exp 05 deliberately constructs states where a one-step policy and a dynamically optimal policy disagree:
+Exp 05 constructs states where:
 
 ```text
 M(s) <= 0
@@ -206,15 +188,22 @@ C*(s) > 0
 
 so a myopic policy must STOP while the Bayes-optimal dynamic policy must QUERY.
 
-The four primary wedge costs are:
+Primary wedge costs:
 
 ```text
 0.090, 0.100, 0.120, 0.125
 ```
 
-The first mechanism-discovery run produced a surprising result. The calibrated-state arm was correct on `3/4 = 75%` of wedge states. The explicit Bellman-decomposition arm had three valid wedge responses and was correct on only `1/3 = 33.3%`; one cost-0.125 Bellman response exhausted the output allowance before returning final JSON.
+Primary run:
 
-Among completed wedge pairs:
+```text
+Calibrated-state wedge agreement: 3/4 = 75%
+Bellman valid wedge agreement:     1/3 = 33.3%
+```
+
+One primary Bellman response at `0.125` exhausted the output allowance and remains an error in the primary denominator.
+
+Among completed primary pairs:
 
 ```text
 calibrated wrong -> Bellman correct   1
@@ -222,28 +211,19 @@ calibrated correct -> Bellman wrong   2
 net Bellman corrected pairs          -1
 ```
 
-The scaffold therefore did **not** behave as a monotone repair.
+Explicit decomposition therefore did **not** behave as a monotone repair.
 
-#### Exp 05 mechanism result A — arithmetic is not the main problem
-
-Bellman decomposition closure was almost exact:
+#### Exp 05 result A — arithmetic is not the main problem
 
 ```text
-mean absolute closure error ≈ 1.42e-6
+mean absolute Bellman closure error      ≈ 1.42e-6
+mean absolute after-miss value error     ≈ 0.1844
+mean absolute full evaluated-Q error     ≈ 0.1685
 ```
 
-while:
+The model can coherently combine its stated components while supplying badly miscalibrated future-policy values.
 
-```text
-mean absolute after-miss option-value error ≈ 0.1844
-mean absolute full evaluated-Q error        ≈ 0.1685
-```
-
-Thus the model can coherently combine its stated Bellman components while supplying badly miscalibrated future-policy values.
-
-#### Exp 05 mechanism result B — future value is unstable, not merely omitted
-
-Examples:
+#### Exp 05 result B — future value is unstable
 
 ```text
 cost 0.090: option-value error ≈ -0.2568 -> premature STOP
@@ -251,52 +231,103 @@ cost 0.100: option-value error ≈ -0.1986 -> premature STOP
 cost 0.120: option-value error ≈ +0.3256 -> QUERY for an overestimated future value
 ```
 
-The defensible interpretation is therefore not simply "the model ignores future option value." It is that **future policy value is poorly calibrated and can swing between severe under- and over-estimation even under explicit Bellman scaffolding**.
+The problem is not merely systematic omission; future value can swing between severe under- and over-estimation.
 
-#### Exp 05 mechanism result C — value-to-policy coupling can fail
+#### Exp 05 result C — value-to-policy coupling can fail
 
-At the `0.130` dynamic-stop control, the Bellman arm reported a negative full expected net gain (`-0.043776904`), whose sign implies STOP, but then emitted `QUERY`.
+At cost `0.130`, the Bellman arm reported a negative full expected net gain (`-0.043776904`) but emitted `QUERY`. Thus a correctly signed stated value need not control the final termination action.
 
-This is direct evidence that a correctly signed stated value does not guarantee a matching discrete termination action.
+#### Supplemental cost-0.125 recovery — transition semantics become visible
 
-The current mechanism pipeline is therefore empirically motivated rather than purely conceptual:
+A separate recovery run with a larger output allowance generated a new stochastic Bellman response at the near-boundary wedge state.
+
+Exact quantities:
 
 ```text
-state representation
--> future-policy value estimation
--> arithmetic composition
--> sign judgment
--> discrete STOP/QUERY mapping
+myopic gain                      = -0.0387769
+exact value after miss           = +0.0529374
+full dynamic continuation value  = +0.0095961
+oracle action                    = QUERY
 ```
 
-A targeted supplemental run is recovering the length-truncated `0.125` Bellman observation with a larger output allowance. It is recorded as a new stochastic observation rather than silently replacing the original missing response.
+Recovered model quantities:
+
+```text
+current hit probability          ≈ exact
+miss probability                 ≈ exact
+query cost                       = exact
+estimated value after miss       = 0.0
+full expected net gain           = -0.038776904
+decision                         = STOP
+closure error                    = 0.0
+```
+
+The model's rationale states that after a miss "the target is ruled out." That is a wrong hypothetical state transition: a miss rules out the queried candidate, not target existence across all remaining candidates.
+
+This suggests an upstream failure that is more specific than generic future-value miscalibration:
+
+> **An agent can know where it is now yet fail to represent where one more action would leave it.**
+
+Because this is one supplemental stochastic observation, it motivates rather than settles the mechanism claim.
+
+### Exp 05b — counterfactual transition audit
+Exp 05b directly distinguishes transition-model failure from successor-value failure.
+
+For costs:
+
+```text
+0.090, 0.100, 0.120, 0.125, 0.130
+```
+
+the model receives exact **current-state** statistics and a fixed evaluated candidate, but no successor-state information. It must predict the state after a hypothetical miss:
+
+- posterior target-existence probability after miss;
+- best remaining hit probability after miss;
+- best remaining candidate;
+- optimal future-policy value from that successor state;
+- full value of initiating the current query;
+- final STOP/QUERY action.
+
+Exact successor statistics are computed only after the response.
+
+Primary classification:
+
+```text
+transition wrong + future value wrong
+    -> counterfactual transition failure upstream
+
+transition approximately right + future value wrong
+    -> successor-value failure
+
+transition/value right + action wrong
+    -> value-to-policy coupling failure
+
+all right
+    -> locally coherent dynamic termination judgment
+```
+
+Status: implementation unit tests passed and the first NVIDIA transition-audit run has been launched.
 
 ### Exp 06 — repeated-state and cross-model replication
 After mechanism discovery, repeat critical states multiple times per condition and across at least one additional model family.
 
-Priority states now include:
+Priority targets:
 
 ```text
-standard pre-boundary states repaired by state calibration
+Exp 04b residual near-boundary state
 wedge cost 0.090
 wedge cost 0.100
 wedge cost 0.120
-near-boundary wedge cost 0.125
+wedge cost 0.125
 dynamic-stop control cost 0.130
 ```
 
-Replication should estimate distributions, not only single-response means, for:
-
-- future-option-value error;
-- reported-value sign error;
-- value-to-action coupling error;
-- local stopping regret;
-- treatment transitions between calibrated and Bellman arms.
+Estimate distributions for current-state error, transition error, successor-value error, sign error, action-coupling error, and local regret.
 
 ### Exp 07 — richer autonomous-agent environments
 Move beyond synthetic search to tool acquisition, retrieval, coding, and environments with irreversible or externally costly actions.
 
-The goal is to test whether the same decomposed termination failures survive when continuation means another real tool call, retrieval step, code edit, or external action rather than another synthetic query.
+The goal is to test whether the same decomposition survives when continuation means another real tool call, retrieval step, code edit, or external action.
 
 ## Primary metrics
 
@@ -304,68 +335,60 @@ The goal is to test whether the same decomposed termination failures survive whe
 - Excess Continuation Ratio
 - Failure-to-Halt Rate
 - Local Termination Regret
-- Signed Continuation-Calibration Error: `Â(s) - A*(s)`
+- Signed Continuation-Calibration Error
 - Continuation-value sign accuracy
 - Stopping-Boundary Displacement
 - Decision / Reported-Value Self-Consistency
 - Query-choice agreement conditional on continuation
 - Boundary monotonicity / post-stop reversal count
-- Future-option-value omission / calibration error
+- Current-state calibration error
+- Counterfactual successor-state calibration error
+- Future-option-value / successor-value error
 - Full evaluated-query value error
 - Bellman decomposition closure error
 - Value-to-policy coupling error
 - Utility at Stop
-- Outcome-Luck Gap, reported separately from normative regret
+- Outcome-Luck Gap
 
 ## Current mechanism interpretation
-
-The evidence no longer supports a one-line diagnosis such as "agents stop too early" or "agents overthink."
-
-Instead:
 
 ```text
 Exp 02 / Exp 03
     -> stopping competence separates from next-action competence.
 
-Exp 04
-    -> correcting state representation can strongly repair stopping in a myopic-sign-aligned regime.
+Exp 04 / Exp 04b
+    -> exact current-state information strongly repairs the discrete stopping boundary;
+       generic dynamic-policy reminders alone do not.
 
 Exp 05
-    -> when myopic and dynamic decisions are forced apart, future-value estimation becomes independently visible.
+    -> when myopic and dynamic decisions are forced apart, future-state reasoning
+       and future-policy valuation become independently visible.
 
 Exp 05 Bellman arm
-    -> explicit decomposition can preserve arithmetic coherence while destabilizing future-value estimates.
+    -> explicit decomposition can preserve arithmetic coherence while destabilizing
+       future-value estimates.
 
 Exp 05 cost 0.130
-    -> even a correctly signed value can fail to control the final STOP/QUERY action.
+    -> a correctly signed value can fail to control the final action.
+
+Exp 05 cost 0.125 recovery
+    -> correct current-state numbers and exact arithmetic can coexist with a wrong
+       counterfactual transition model.
 ```
 
-The emerging object of study is therefore **termination calibration as a layered metareasoning system**, not simply a stopping threshold.
+The emerging object of study is **termination calibration as a layered metareasoning system**, not simply a stopping threshold.
 
 ## Related-work positioning / novelty guard
 
-The paper must explicitly acknowledge that agent stopping is no longer an empty literature niche.
+The paper must explicitly acknowledge existing work on agentic abstention, cost-aware exploration, bounded deliberation, early exit, doomed-trajectory prediction, and cost-optimal multi-turn planning.
 
-Closest threats include:
+The defensible contribution is narrower:
 
-- **Agentic Abstention: Do Agents Know When to Stop Instead of Act?** — sequential answer / abstain / continue behavior and timely abstention.
-- **Calibrate-Then-Act: Cost-Aware Exploration in LLM Agents** — cost–uncertainty tradeoffs and stopping exploration.
-- **Cognitive Friction: A Decision-Theoretic Framework for Bounded Deliberation in Tool-Using Agents** — value-of-information and decision-theoretic stopping boundaries.
-- **Runaway is Ashamed, But Helpful** — intrinsic versus extrinsic early exit in embodied agents.
-- **Doomed from the Start** — external early-abort prediction of doomed trajectories.
-- **CostBench** — cost-optimal multi-turn planning and adaptation.
-
-Therefore the contribution should not be framed as "agents have never been evaluated on stopping." The stronger and defensible claim is:
-
-> We evaluate a native agent-emitted STOP as a calibrated metareasoning decision, separately from forced termination, against an exact state-dependent continuation-value oracle. The benchmark measures both directions of stopping error and decomposes failure into state representation, future-policy value estimation, composition, sign judgment, and value-to-policy coupling.
+> We evaluate a native agent-emitted STOP as a calibrated metareasoning decision, separately from forced termination, against an exact state-dependent continuation-value oracle. The benchmark measures both directions of stopping error and decomposes failure into current-state representation, counterfactual transition prediction, future-policy valuation, composition, sign judgment, and value-to-policy coupling.
 
 ## Main empirical story
 
-The paper has moved beyond the simple question of whether the model "knows when to stop."
-
-The more specific story is:
-
-> **Knowing where to act, knowing whether to continue, valuing the option to act again, and converting that value into a stopping action are separable competencies.**
+> **Knowing where to act, knowing whether to continue, predicting where one more action will leave you, valuing the option to act again, and converting that value into a stopping action are separable competencies.**
 
 A model may succeed at one while failing at another.
 
