@@ -1,0 +1,38 @@
+{
+  "arms": {
+    "instruction_only": {
+      "n": 12,
+      "n_errors": 0,
+      "decision_agreement_rate": 0.25,
+      "reported_value_sign_accuracy": 0.25,
+      "decision_value_self_consistency": 1.0,
+      "mean_expected_gain_abs_error": 0.07306990025227432,
+      "premature_stop_rate_pre_boundary": 1.0,
+      "excess_query_rate_at_or_after_boundary": 0.5,
+      "invalid_action_rate": 0.08333333333333333
+    },
+    "state_calibrated": {
+      "n": 12,
+      "n_errors": 0,
+      "decision_agreement_rate": 0.9166666666666666,
+      "reported_value_sign_accuracy": 0.9166666666666666,
+      "decision_value_self_consistency": 1.0,
+      "mean_expected_gain_abs_error": 0.08929882102250254,
+      "premature_stop_rate_pre_boundary": 0.16666666666666666,
+      "excess_query_rate_at_or_after_boundary": 0.0,
+      "invalid_action_rate": 0.0
+    }
+  },
+  "paired_n": 12,
+  "instruction_wrong_state_correct": 8,
+  "instruction_correct_state_wrong": 0,
+  "net_state_corrected_pairs": 8,
+  "model": "openai/gpt-oss-20b",
+  "provenance": {
+    "workflow_run_id": 33937428748,
+    "head_sha": "d4c41ade42155ab72f23c0c9030c50db2a05cfe8",
+    "artifact_id": 9960699878,
+    "artifact_sha256": "07dc3122c4ba02586d91d79d640335717c4f62d8487771c46df8d42a8c9fe6d8",
+    "note": "Instruction-matched control: both arms receive the same dynamic-policy reminder; exact posterior state statistics are the intended treatment difference."
+  }
+}
