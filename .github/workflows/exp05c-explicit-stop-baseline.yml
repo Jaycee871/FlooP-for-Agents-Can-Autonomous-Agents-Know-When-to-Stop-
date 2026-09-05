@@ -1,0 +1,40 @@
+name: Exp 05c explicit STOP-baseline coupling control
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/exp05c-explicit-stop-baseline.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  run-exp05c:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+      NVDIA_API_KEY: ${{ secrets.NVDIA_API_KEY }}
+      NVIDIA_MODEL: openai/gpt-oss-20b
+      NVIDIA_TIMEOUT: "180"
+      NVIDIA_MAX_RETRIES: "3"
+      NVIDIA_RETRY_BACKOFF: "2"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install benchmark
+        run: python -m pip install -e .
+      - name: Run explicit STOP-baseline control
+        run: python experiments/exp05c_explicit_stop_baseline.py --repeats 3
+      - name: Upload probes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp05c-explicit-stop-baseline
+          path: results/exp05c_explicit_stop_baseline/
+          if-no-files-found: warn
+          retention-days: 14
