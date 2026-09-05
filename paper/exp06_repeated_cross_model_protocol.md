@@ -28,25 +28,31 @@ The cost-`0.090` state is omitted from the first compact replication because it 
 
 ## Models
 
-Initial cross-model pair:
+Primary cross-model pair:
 
 ```text
 openai/gpt-oss-20b
-google/gemma-3-27b-it
+deepseek-ai/deepseek-v4-flash-0731
 ```
 
-Both are accessed through the same NVIDIA hosted inference interface. The replication uses the same prompt, parsing, oracle, and metrics for both models.
+Both are accessed through the same NVIDIA hosted inference interface. A live smoke probe confirmed `deepseek-ai/deepseek-v4-flash-0731` returned a valid chat completion before the replication was launched.
 
-To avoid model-specific reasoning-control support becoming a confound, the replication wrapper does not rely on a provider-specific `reasoning_effort` behavior. The task instruction itself is held constant.
+The originally configured `google/gemma-3-27b-it` endpoint returned HTTP 410 because that hosted model had reached end of life. Those provider failures are classified as infrastructure/model-availability events and are **not** counted as model decisions or empirical observations.
+
+A newer `google/gemma-4-31b-it` endpoint was also explored, but a short smoke request timed out. Any separate longer-timeout Gemma 4 run is exploratory until it completes successfully and is frozen with provenance; it is not required for the primary two-model comparison.
+
+The replication uses the same prompt, parsing, oracle, and metrics for both primary models.
+
+To avoid model-specific reasoning-control support becoming a confound, the replication wrapper does not rely on provider-specific `reasoning_effort` behavior. The task instruction itself is held constant.
 
 ## Repetitions
 
-The first compact replication uses:
+The first compact primary replication uses:
 
 ```text
 3 independent generations per condition per model
 4 conditions
-2 models
+2 primary models
 = 24 total probes
 ```
 
@@ -114,6 +120,8 @@ For binary outcomes report counts and rates. Because this first replication has 
 ## Interpretation guard
 
 The experiment does not infer latent reasoning from natural-language rationales. Rationales may be retained for qualitative error inspection, but mechanism claims are based on explicit predicted quantities and intervention-defined comparisons.
+
+Provider/model availability is handled separately from scientific outcomes. A request timeout, retired endpoint, malformed response, or exhausted retry is never silently recoded as STOP, QUERY, or an incorrect model judgment.
 
 ## Success criterion for mechanism replication
 
