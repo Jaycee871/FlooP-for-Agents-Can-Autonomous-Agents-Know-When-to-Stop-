@@ -2,9 +2,6 @@ name: Exp 04b instruction-matched state ablation
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - ".github/workflows/exp04b-instruction-matched-state-ablation.yml"
 
 permissions:
   contents: read
