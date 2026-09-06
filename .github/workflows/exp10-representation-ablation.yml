@@ -1,0 +1,96 @@
+name: Exp 10 representation ablation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".exp10_representation_trigger"
+
+permissions:
+  contents: read
+
+env:
+  NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+  NVDIA_API_KEY: ${{ secrets.NVDIA_API_KEY }}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        arm:
+          - implicit_narrative
+          - explicit_bellman
+        condition:
+          - cost_0100_wedge
+          - cost_0120_wedge
+          - cost_0125_wedge
+          - cost_0130_dynamic_stop
+        repeat: [0, 1, 2]
+    env:
+      NVIDIA_MODEL: openai/gpt-oss-20b
+      NVIDIA_TIMEOUT: "120"
+      NVIDIA_MAX_RETRIES: "1"
+      NVIDIA_RETRY_BACKOFF: "2"
+      EXP07_MAX_TOKENS: "4096"
+      EXP07_REASONING_MODE: preserve
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install benchmark
+        run: python -m pip install -e .
+      - name: Run one representation probe
+        run: >-
+          python experiments/exp10_representation_ablation.py
+          --arm ${{ matrix.arm }}
+          --condition-id ${{ matrix.condition }}
+          --repeat-index ${{ matrix.repeat }}
+          --out results/exp10_matrix/probe.json
+          --require-valid
+      - name: Upload probe record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp10-probe-gpt-oss-20b-${{ matrix.arm }}-${{ matrix.condition }}-r${{ matrix.repeat }}
+          path: results/exp10_matrix/probe.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  aggregate:
+    needs: probe
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install benchmark
+        run: python -m pip install -e .
+      - name: Download all probe records
+        uses: actions/download-artifact@v4
+        with:
+          pattern: exp10-probe-gpt-oss-20b-*
+          path: downloaded-probes
+      - name: Aggregate and enforce scientific validity
+        run: >-
+          python experiments/exp10_aggregate_probe_artifacts.py
+          --input-dir downloaded-probes
+          --out results/exp10_matrix/summary.json
+          --model openai/gpt-oss-20b
+          --repeats 3
+          --require-complete
+      - name: Upload validated summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp10-representation-gpt-oss-20b-summary
+          path: results/exp10_matrix/summary.json
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,2 @@
+trigger: exp10-representation-ablation
+purpose: hold trajectory numbers fixed while removing or supplying the Bellman recurrence

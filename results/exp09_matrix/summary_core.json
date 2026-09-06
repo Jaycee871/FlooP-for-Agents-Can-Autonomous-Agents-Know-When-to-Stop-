@@ -1,0 +1,51 @@
+{
+  "provenance": {
+    "run_id": 34014497459,
+    "source_commit": "baceae3eefea271ed402148c988c109db80297f0",
+    "summary_artifact_id": 9983510868,
+    "summary_artifact_digest": "sha256:41b8f54320457887b19ce25ac5ec072246a32e268dee6cc5c68430c700adbabe",
+    "model": "openai/gpt-oss-20b"
+  },
+  "scientific_validity": {
+    "expected_records": 24,
+    "observed_records": 24,
+    "valid_records": 24,
+    "error_records": 0,
+    "missing_probe_keys": [],
+    "unexpected_probe_keys": [],
+    "oracle_identity_tolerance": 1e-09,
+    "oracle_identity_violations": [],
+    "complete": true
+  },
+  "overall": {
+    "n": 24,
+    "decision_agreement_rate": 1.0,
+    "reported_value_sign_accuracy": 1.0,
+    "decision_value_self_consistency": 1.0,
+    "local_decision_regret_mean": 0.0
+  },
+  "by_depth": {
+    "2": {
+      "n": 12,
+      "decision_agreement_rate": 1.0,
+      "reported_value_sign_accuracy": 1.0,
+      "decision_value_self_consistency": 1.0,
+      "first_successor_value_mae": 0.0002029204005379925,
+      "current_query_value_mae": 0.0001869851352618365,
+      "all_backup_value_mae": 0.00018611048812307513,
+      "max_abs_backup_error_mean": 0.00020918328530871526,
+      "local_decision_regret_mean": 0.0
+    },
+    "3": {
+      "n": 12,
+      "decision_agreement_rate": 1.0,
+      "reported_value_sign_accuracy": 1.0,
+      "decision_value_self_consistency": 1.0,
+      "first_successor_value_mae": 0.010112091574863069,
+      "current_query_value_mae": 0.009187358225608929,
+      "all_backup_value_mae": 0.011147060615785546,
+      "max_abs_backup_error_mean": 0.012357760380828758,
+      "local_decision_regret_mean": 0.0
+    }
+  }
+}
