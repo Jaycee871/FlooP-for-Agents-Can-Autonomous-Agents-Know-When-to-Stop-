@@ -16,10 +16,11 @@ env:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 18
     continue-on-error: true
     strategy:
       fail-fast: false
+      max-parallel: 4
       matrix:
         condition:
           - cost_0100_wedge
@@ -29,9 +30,9 @@ jobs:
         repeat: [0, 1, 2]
     env:
       NVIDIA_MODEL: openai/gpt-oss-20b
-      NVIDIA_TIMEOUT: "75"
-      NVIDIA_MAX_RETRIES: "0"
-      NVIDIA_RETRY_BACKOFF: "1"
+      NVIDIA_TIMEOUT: "120"
+      NVIDIA_MAX_RETRIES: "1"
+      NVIDIA_RETRY_BACKOFF: "2"
       EXP06_MAX_TOKENS: "4096"
       EXP06_REASONING_MODE: preserve
     steps:
