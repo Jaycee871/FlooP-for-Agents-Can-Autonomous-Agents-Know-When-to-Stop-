@@ -1,0 +1,62 @@
+{
+  "provenance": {
+    "run_id": 34038250043,
+    "source_commit": "4af2261f46073bbff4b83c827bbd205220fee470",
+    "summary_artifact_id": 9990907597,
+    "summary_artifact_digest": "sha256:2d3acce4cbc6be4112283d2090d207a165d657b9fc64c35720971a9a48bac404",
+    "model": "openai/gpt-oss-20b"
+  },
+  "scientific_validity": {
+    "expected_records": 24,
+    "observed_records": 24,
+    "valid_records": 24,
+    "error_records": 0,
+    "missing_probe_keys": [],
+    "unexpected_probe_keys": [],
+    "complete": true
+  },
+  "overall": {
+    "n": 24,
+    "decision_agreement_rate": 0.75,
+    "reported_value_sign_accuracy": 0.75,
+    "decision_value_self_consistency": 1.0
+  },
+  "by_arm": {
+    "implicit_narrative": {
+      "n": 12,
+      "decision_agreement_rate": 0.75,
+      "reported_value_sign_accuracy": 0.75,
+      "decision_value_self_consistency": 1.0,
+      "first_successor_value_mae": 0.1107113106779765,
+      "current_query_value_mae": 0.10693769309215138,
+      "current_closure_mae": 0.02061365257016216,
+      "local_decision_regret_mean": 0.004469686609787484,
+      "reasoning_chars_mean": 2125.8333333333335,
+      "total_tokens_mean": 1532.0833333333333,
+      "condition_decision_agreement": {
+        "cost_0100_wedge": 1.0,
+        "cost_0120_wedge": 1.0,
+        "cost_0125_wedge": 0.6666666666666666,
+        "cost_0130_dynamic_stop": 0.3333333333333333
+      }
+    },
+    "explicit_bellman": {
+      "n": 12,
+      "decision_agreement_rate": 0.75,
+      "reported_value_sign_accuracy": 0.75,
+      "decision_value_self_consistency": 1.0,
+      "first_successor_value_mae": 0.07550777832084808,
+      "current_query_value_mae": 0.06903304150778651,
+      "current_closure_mae": 0.00005344826696270953,
+      "local_decision_regret_mean": 0.004469686609787484,
+      "reasoning_chars_mean": 749.0833333333334,
+      "total_tokens_mean": 1178.1666666666667,
+      "condition_decision_agreement": {
+        "cost_0100_wedge": 1.0,
+        "cost_0120_wedge": 1.0,
+        "cost_0125_wedge": 0.6666666666666666,
+        "cost_0130_dynamic_stop": 0.3333333333333333
+      }
+    }
+  }
+}
