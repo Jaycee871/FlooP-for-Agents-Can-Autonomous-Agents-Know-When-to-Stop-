@@ -1,0 +1,2 @@
+trigger: exp11-externalized-backups
+purpose: isolate whether forced intermediate Bellman-value externalization rescues stopping
