@@ -1,0 +1,2 @@
+trigger: exp09-recursive-depth-ladder
+purpose: extend explicit Bellman backups from depth 1 to depths 2 and 3
