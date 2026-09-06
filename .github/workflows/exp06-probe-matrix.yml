@@ -1,0 +1,91 @@
+name: Exp 06 fault-isolated probe matrix
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".exp06_matrix_trigger"
+
+permissions:
+  contents: read
+
+env:
+  NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+  NVDIA_API_KEY: ${{ secrets.NVDIA_API_KEY }}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        condition:
+          - cost_0100_wedge
+          - cost_0120_wedge
+          - cost_0125_wedge
+          - cost_0130_dynamic_stop
+        repeat: [0, 1, 2]
+    env:
+      NVIDIA_MODEL: openai/gpt-oss-20b
+      NVIDIA_TIMEOUT: "75"
+      NVIDIA_MAX_RETRIES: "0"
+      NVIDIA_RETRY_BACKOFF: "1"
+      EXP06_MAX_TOKENS: "4096"
+      EXP06_REASONING_MODE: preserve
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install benchmark
+        run: python -m pip install -e .
+      - name: Run one isolated state probe
+        run: >-
+          python experiments/exp06_single_probe.py
+          --condition-id ${{ matrix.condition }}
+          --repeat-index ${{ matrix.repeat }}
+          --out results/exp06_matrix/probe.json
+          --require-valid
+      - name: Upload probe record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp06-probe-gpt-oss-20b-${{ matrix.condition }}-r${{ matrix.repeat }}
+          path: results/exp06_matrix/probe.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  aggregate:
+    needs: probe
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install benchmark
+        run: python -m pip install -e .
+      - name: Download all probe records
+        uses: actions/download-artifact@v4
+        with:
+          pattern: exp06-probe-gpt-oss-20b-*
+          path: downloaded-probes
+      - name: Aggregate and enforce scientific validity
+        run: >-
+          python experiments/exp06_aggregate_probe_artifacts.py
+          --input-dir downloaded-probes
+          --out results/exp06_matrix/summary.json
+          --model openai/gpt-oss-20b
+          --repeats 3
+          --require-complete
+      - name: Upload validated summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exp06-matrix-gpt-oss-20b-summary
+          path: results/exp06_matrix/summary.json
+          if-no-files-found: warn
+          retention-days: 14
